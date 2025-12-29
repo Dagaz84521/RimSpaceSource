@@ -51,6 +51,7 @@ enum class ECharacterActionState : uint8
 	Idle        UMETA(DisplayName = "Idle"),
 	Moving      UMETA(DisplayName = "Moving"),
 	Working     UMETA(DisplayName = "Working"), // 正在向设施输送劳动力
+	Eating 		UMETA(DisplayName = "Eating"),  // 正在恢复饱食度
 	Sleeping    UMETA(DisplayName = "Sleeping") // 正在恢复自身状态
 };
 
@@ -75,6 +76,7 @@ public:
 	virtual FString GetActorInfo() const override;
 
 	bool ExecuteAgentCommand(const FAgentCommand& Command);
+	ECharacterActionState GetActionState() const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -86,6 +88,8 @@ protected:
 	bool TakeItem(int32 ItemID, int32 Count); // 从当前地点拾取物品
 	bool PutItem(int32 ItemId, int32 Count); // 在当前地点放下携带物品
 	bool UseFacility(int32 ParamId); // 使用当前地点功能
+
+	int32 FindFoodInInventory() const; // 在背包中寻找食物
 
 	// 人物基本属性
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character")
@@ -110,4 +114,10 @@ protected:
 
 	int32 CurrentMinute;
 	int32 CurrentHour;
+	
+	// 人物进食
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character")
+	int32 EatRemainingMinutes;
+	
+	float NutritionPerMinute = 0.0f;
 };

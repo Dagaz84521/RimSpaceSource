@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "ItemStack.h"
 #include "TaskInfo.generated.h"
 
 USTRUCT(BlueprintType)
@@ -18,6 +19,8 @@ struct FTask
 	int32 ProductID;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Task")
 	int32 TaskWorkload; // 任务工作量，单位：分钟
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Task")
+	TArray<FItemStack> Ingredients; // 原料列表
 };
 
 /**
@@ -30,4 +33,6 @@ class RIMSPACE_API UTaskInfo : public UDataAsset
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TArray<FTask> Tasks;
+	
+	FTask* GetTask(int32 TaskID);
 };

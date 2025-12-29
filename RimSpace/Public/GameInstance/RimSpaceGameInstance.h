@@ -7,6 +7,8 @@
 #include "Data/ItemData.h"
 #include "RimSpaceGameInstance.generated.h"
 
+struct FTask;
+class UTaskInfo;
 /**
  * 
  */
@@ -18,11 +20,12 @@ public:
 	virtual void Init() override;
 
 	const UItemData* GetItemData(int32 ItemID) const;
-
+	const FTask* GetTaskData(int32 TaskID) const;
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "RimSpace|Items")
 	TArray<TObjectPtr<UItemData>> AllItems;
-
+	UPROPERTY(EditDefaultsOnly, Category = "RimSpace|Items")
+	TObjectPtr<UTaskInfo> TaskInfo;
 private:
 	TMap<int32, TObjectPtr<UItemData>> ItemMap;
 };

@@ -7,6 +7,7 @@
 #include "Interface/CommandProvider.h"
 #include "Stove.generated.h"
 
+struct FTask;
 /**
  * 
  */
@@ -21,10 +22,23 @@ public:
 	virtual FString GetActorInfo() const override;
 	AStove();
 
+	//工作相关逻辑
+	void SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID);
+	virtual void UpdateEachMinute_Implementation(int32 NewMinute) override;
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
 	TObjectPtr<class UInventoryComponent> Inventory;
 	
 private:
-	void TestAddAndRemoveItem(const FText& Command);
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "WorkStation", meta = (AllowPrivateAccess = "true"))
+	TMap<int32, int32> TaskList; // TaskID, 剩余任务数
+	UPROPERTY()
+	class ARimSpaceCharacterBase* CurrentWorker;
+
+	int32 CurrentTaskID; // 当前任务数据
+	int32 CurrentWorkProgress = 0; // 当前工作进度，单位：分钟
+
+	bool HasIngredients(const FTask& task) const;
+	bool ConsumeIngredients(const FTask& TaskID);
+	const FTask* GetCurrentTaskData() const;
 };

@@ -2,6 +2,7 @@
 
 
 #include "GameInstance/RimSpaceGameInstance.h"
+#include "Data/TaskInfo.h"
 
 void URimSpaceGameInstance::Init()
 {
@@ -31,4 +32,9 @@ const UItemData* URimSpaceGameInstance::GetItemData(int32 ItemID) const
 		return Found->Get();
 	}
 	return nullptr;
+}
+
+const FTask* URimSpaceGameInstance::GetTaskData(int32 TaskID) const
+{
+	return TaskInfo->GetTask(TaskID);
 }

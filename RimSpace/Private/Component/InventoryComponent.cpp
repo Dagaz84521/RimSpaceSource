@@ -137,5 +137,12 @@ bool UInventoryComponent::CheckItemIsAccepted(const FItemStack& Item)
 
 int32 UInventoryComponent::GetItemCount(int32 ItemID) const
 {
+	for (const FItemStack& Stack : Items)
+	{
+		if (Stack.ItemID == ItemID)
+		{
+			return Stack.Count;
+		}
+	}
 	return 0;
 }
