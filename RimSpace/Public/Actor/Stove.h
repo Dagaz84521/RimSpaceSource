@@ -38,7 +38,7 @@ private:
 	int32 CurrentTaskID; // 当前任务数据
 	int32 CurrentWorkProgress = 0; // 当前工作进度，单位：分钟
 
-	bool HasIngredients(const FTask& task) const;
-	bool ConsumeIngredients(const FTask& TaskID);
+	bool HasIngredients(const FTask& Task) const;
+	bool ConsumeIngredients(const FTask& Task);
 	const FTask* GetCurrentTaskData() const;
 };

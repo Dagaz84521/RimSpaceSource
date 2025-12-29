@@ -8,6 +8,8 @@
 #include "Component/InventoryComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "NavigationSystem.h"
+#include "Actor/Stove.h"
+#include "Actor/WorkStation.h"
 #include "Data/AgentCommand.h"
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "RimSpace/RimSpace.h"
@@ -121,6 +123,10 @@ bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
     case EInteractionType::EAT_Stove:
        if (!CharacterSkills.bCanCook) return false;
        CurrentActionState = ECharacterActionState::Working;
+    	if (AStove* Stove = Cast<AStove>(CurrentPlace))
+    	{
+    		Stove->SetWorker(this, ParamId);
+    	}
        break;
 
     case EInteractionType::EAT_CultivateChamber:
@@ -131,6 +137,10 @@ bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
     case EInteractionType::EAT_WorkStation:
        if (!CharacterSkills.bCanCraft) return false;
        CurrentActionState = ECharacterActionState::Working;
+    	if (AWorkStation* WorkStation = Cast<AWorkStation>(CurrentPlace))
+    	{
+    		WorkStation->SetWorker(this, ParamId);
+    	}
        break;
 
     case EInteractionType::EAT_Table:

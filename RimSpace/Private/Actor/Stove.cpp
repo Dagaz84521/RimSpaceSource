@@ -116,18 +116,36 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 	}
 }
 
-bool AStove::HasIngredients(const FTask& task) const
+bool AStove::HasIngredients(const FTask& Task) const
 {
+	for (const FItemStack& Ingredient : Task.Ingredients)
+	{
+		int32 AvailableCount = Inventory->GetItemCount(Ingredient.ItemID);
+		if (AvailableCount < Ingredient.Count)
+		{
+			return false; // 原料不足
+		}
+	}
 	return true;
 }
 
-bool AStove::ConsumeIngredients(const FTask& TaskID)
+bool AStove::ConsumeIngredients(const FTask& Task)
 {
+	for (const FItemStack& Ingredient : Task.Ingredients)
+	{
+		bool bRemoved = Inventory->RemoveItem(Ingredient);
+		if (!bRemoved)
+		{
+			return false; // 消耗失败（理论上不应该发生，因为之前已经检查过）
+		}
+	}
 	return true;
 }
 
 const FTask* AStove::GetCurrentTaskData() const
 {
-	return nullptr;
+	URimSpaceGameInstance* GameInstance = Cast<URimSpaceGameInstance>(GetGameInstance());
+	if (!GameInstance) return nullptr;
+	return GameInstance->GetTaskData(CurrentTaskID);
 }
 
