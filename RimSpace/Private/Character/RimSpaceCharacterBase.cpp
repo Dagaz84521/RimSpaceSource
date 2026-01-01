@@ -40,6 +40,20 @@ void ARimSpaceCharacterBase::BeginPlay()
 			&ARimSpaceCharacterBase::OnMoveCompleted
 		);
 	}
+	
+	// == 测试生产流程 ==
+	FTimerHandle TestTimer;
+	GetWorld()->GetTimerManager().SetTimer(TestTimer, [this]()
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Test] Agent: 开始寻找灶台..."));
+        
+		FAgentCommand MoveCmd;
+		MoveCmd.CommandType = EAgentCommandType::Move;
+		MoveCmd.TargetName = FName("Stove"); // 确保场景里的 Stove 叫这个名字
+        
+		ExecuteAgentCommand(MoveCmd);
+        
+	}, 2.0f, false); // 延迟2秒执行，等待地图加载
 }
 
 bool ARimSpaceCharacterBase::MoveTo(const FName& TargetName)
@@ -97,6 +111,17 @@ void ARimSpaceCharacterBase::OnMoveCompleted(FAIRequestID RequestID, EPathFollow
 
 	CurrentPlace = TargetPlace;
 	TargetPlace = nullptr;
+
+	if (CurrentPlace && CurrentPlace->GetInteractionType() == EInteractionType::EAT_Stove)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Test] Agent: 已到达灶台，开始执行做饭任务(TaskID=1)..."));
+        
+		FAgentCommand UseCmd;
+		UseCmd.CommandType = EAgentCommandType::Use;
+		UseCmd.ParamID = 2003; // 假设 TaskID 1 是做饭
+        
+		ExecuteAgentCommand(UseCmd);
+	}
 	
 }
 

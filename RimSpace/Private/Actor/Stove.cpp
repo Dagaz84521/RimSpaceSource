@@ -48,6 +48,7 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 	// 1. 基础检查：没人或者人没在干活，直接退出
 	if (!CurrentWorker || CurrentWorker->GetActionState() != ECharacterActionState::Working) 
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[Stove]1：没有工人或工人未工作，跳过工作流程。"));
 		return;
 	}
 
@@ -55,6 +56,7 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 	// 如果 Agent 没有指定任务 (CurrentTaskID 为 0)，则设施不工作
 	if (CurrentTaskID <= 0) 
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[Stove]2：当前任务ID无效，跳过工作流程。"));
 		return;
 	}
 
@@ -69,12 +71,18 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 		// A. 直接中断工作 (SetWorker(nullptr, 0))
 		// B. 保持等待 (什么都不做)
 		// 这里演示简单逻辑：检查通过才干活
-		if (!HasIngredients(*TaskData)) return; 
+		if (!HasIngredients(*TaskData))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Stove]3：原料不足，无法开始工作，跳过工作流程。"));
+			return;
+		}
 	}
 
 	// 5. 增加进度
 	CurrentWorkProgress++;
-
+	GEngine->AddOnScreenDebugMessage(6, 5.f, FColor::Purple,
+		FString::Printf(TEXT("[Stove] 工作中... 进度：%d / %d"), 
+		CurrentWorkProgress, TaskData->TaskWorkload));
 	// 6. 检查完成
 	if (CurrentWorkProgress >= TaskData->TaskWorkload)
 	{
