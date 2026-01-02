@@ -5,14 +5,75 @@
 #include "Component/InventoryComponent.h"
 #include "Character/RimSpaceCharacterBase.h"
 #include "GameInstance/RimSpaceGameInstance.h"
+#include "Player/RimSpacePlayerController.h"
 
 TArray<FText> AWorkStation::GetCommandList() const
 {
-	return TArray<FText>();
+	TArray<FText> result;
+	// 简单示例：提供三种生产命令
+	result.Add(FText::FromString(TEXT("生产棉线")));
+	result.Add(FText::FromString(TEXT("生产棉布")));
+	result.Add(FText::FromString(TEXT("生产棉衣")));
+	return result;
 }
 
 void AWorkStation::ExecuteCommand(const FText& Command)
 {
+	FString CmdString = Command.ToString();
+	int32 TargetTaskID = -1;
+	FText TitleText;
+
+	// 1. 简单的字符串匹配来确定任务
+	// (对应上一步定义的 ID: 1001-棉线, 1002-棉布, 1003-棉衣)
+	if (CmdString.Contains(TEXT("棉线")))
+	{
+		TargetTaskID = 2001;
+		TitleText = FText::FromString(TEXT("请输入棉线生产数量"));
+	}
+	else if (CmdString.Contains(TEXT("棉布")))
+	{
+		TargetTaskID = 2002;
+		TitleText = FText::FromString(TEXT("请输入棉布生产数量"));
+	}
+	else if (CmdString.Contains(TEXT("棉衣")))
+	{
+		TargetTaskID = 3001;
+		TitleText = FText::FromString(TEXT("请输入棉衣生产数量"));
+	}
+
+	// 2. 如果识别到了有效指令，呼出 UI
+	if (TargetTaskID != -1)
+	{
+		// 获取当前已有的任务数（方便玩家在此基础上修改，或者直接覆盖）
+		int32 CurrentCount = TaskList.Contains(TargetTaskID) ? TaskList[TargetTaskID] : 0;
+
+		if (ARimSpacePlayerController* PC = Cast<ARimSpacePlayerController>(GetWorld()->GetFirstPlayerController()))
+		{
+			// 3. 打开输入框
+			PC->OpenQuantityInputWidget(
+				TitleText,
+				CurrentCount,
+				[this, TargetTaskID](int32 InputValue) // Lambda 回调
+				{
+					// 玩家点击确认后，这里的代码会执行：
+                    
+					if (InputValue > 0)
+					{
+						// 更新任务列表：直接设置为玩家输入的数字
+						this->TaskList.FindOrAdd(TargetTaskID) = InputValue;
+                        
+						UE_LOG(LogTemp, Log, TEXT("[WorkStation] 任务 %d 更新为: %d"), TargetTaskID, InputValue);
+					}
+					else
+					{
+						// 如果输入 0，视为取消任务
+						this->TaskList.Remove(TargetTaskID);
+						UE_LOG(LogTemp, Log, TEXT("[WorkStation] 任务 %d 已移除"), TargetTaskID);
+					}
+				}
+			);
+		}
+	}
 }
 
 FString AWorkStation::GetActorInfo() const
@@ -21,6 +82,16 @@ FString AWorkStation::GetActorInfo() const
 	FString InventoryInfo = Inventory->GetInventoryInfo();
 	Info += TEXT("=== 库存 ===\n");
 	Info += InventoryInfo;
+	Info += TEXT("\n=== 任务列表 ===\n");
+	for (auto& Elem : TaskList)
+	{
+		const URimSpaceGameInstance* GI = Cast<URimSpaceGameInstance>(GetGameInstance());
+		
+		if (const FTask* TaskData = GI ? GI->GetTaskData(Elem.Key) : nullptr)
+		{
+			Info += FString::Printf(TEXT("任务: %s - 剩余次数: %d\n"), *TaskData->TaskName.ToString(), Elem.Value);	
+		}
+	}
 	return Info;
 }
 

@@ -15,6 +15,7 @@ TArray<FText> AStove::GetCommandList() const
 
 void AStove::ExecuteCommand(const FText& Command)
 {
+	
 }
 
 FString AStove::GetActorInfo() const
@@ -42,6 +43,7 @@ void AStove::SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID)
 	CurrentWorkProgress = 0;
 }
 
+// 当原料不足的时候是否应该把Character转为Idle？
 void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 {
 	Super::UpdateEachMinute_Implementation(NewMinute);

@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Actor/RimSpaceActorBase.h"
+#include "UI/QuantitySelectWidget.h"
 #include "Interface/CommandProvider.h"
 #include "UI/StatusInfoWidget.h"
 #include "Interface/InteractionInterface.h"
@@ -186,6 +187,46 @@ void ARimSpacePlayerController::UpdateHoverInfo()
 	{
 		HoverInfoWidget->SetVisibility(ESlateVisibility::Hidden);
 	}
+}
+
+void ARimSpacePlayerController::OpenQuantityInputWidget(const FText& Title,int32 CurrentVal, FOnQuantityInputConfirm Callback)
+{
+	if (CurrentInputWidget)
+	{
+		CurrentInputWidget->RemoveFromParent();
+		CurrentInputWidget = nullptr;
+	}
+	if (QuantityInputWidgetClass)
+	{
+		CurrentInputWidget = CreateWidget<UQuantitySelectWidget>(this, QuantityInputWidgetClass);
+		if (CurrentInputWidget)
+		{
+			FOnQuantityInputConfirm WrappedCallback = [this, Callback](int val)
+			{
+				Callback(val);
+				this->CloseQuantityInputWidget();
+			};
+			CurrentInputWidget->Setup(Title, CurrentVal, WrappedCallback);
+			// 显示在屏幕中央
+			CurrentInputWidget->AddToViewport(100);
+
+			FInputModeUIOnly InputMode;
+			InputMode.SetWidgetToFocus(CurrentInputWidget->TakeWidget());
+			SetInputMode(InputMode);
+			bShowMouseCursor = true;
+		}
+	}
+}
+
+void ARimSpacePlayerController::CloseQuantityInputWidget()
+{
+		FInputModeGameAndUI InputMode;
+		SetInputMode(InputMode);
+		bShowMouseCursor = true;
+		if (CurrentInputWidget)
+		{
+			CurrentInputWidget = nullptr;
+		}
 }
 
 void ARimSpacePlayerController::SpawnCommandMenu()

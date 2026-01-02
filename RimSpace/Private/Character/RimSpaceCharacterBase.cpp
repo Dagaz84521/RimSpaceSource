@@ -174,7 +174,7 @@ bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
        int32 FoodID = FindFoodInInventory();
        if (FoodID == -1)
        {
-           UE_LOG(LogTemp, Warning, TEXT("No food found in inventory!"));
+       	   UE_LOG(LogTemp, Warning, TEXT("[RimSpace] UseFacility: 背包内没有食物，无法在桌子处进食!"));
            return false; // 没食物，无法进食
        }
 
@@ -210,7 +210,13 @@ bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
     }
 
     case EInteractionType::EAT_Bed:
+    	if (CharacterStats.Energy >= CharacterStats.MaxEnergy)
+    	{
+    		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] UseFacility: 体力已满，无需睡觉!"));
+    		return false; // 体力已满，无需睡觉
+    	}
        CurrentActionState = ECharacterActionState::Sleeping;
+    	UE_LOG(LogTemp, Log, TEXT("[RimSpace] Sleeping"));
        break;
 
     default:

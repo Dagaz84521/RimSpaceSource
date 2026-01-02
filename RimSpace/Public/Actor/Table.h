@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "Actor/RimSpaceActorBase.h"
-#include "Bed.generated.h"
+#include "Table.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class RIMSPACE_API ABed : public ARimSpaceActorBase
+class RIMSPACE_API ATable : public ARimSpaceActorBase
 {
 	GENERATED_BODY()
 public:
-	ABed();
-	FString GetActorInfo();
+	ATable();
+	FString GetActorInfo() const override;
 };

@@ -4,12 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "UI/QuantitySelectWidget.h"
 #include "RimSpacePlayerController.generated.h"
 
 /**
  * 
  */
 
+class UQuantitySelectWidget;
 class UCommandMenuWidget;
 class ARimSpaceActorBase;
 class IInteractionInterface;
@@ -84,6 +86,16 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "UI/Command Menu")
 	TSubclassOf<UCommandMenuWidget> CommandMenuWidgetClass;
 	TObjectPtr<UCommandMenuWidget> CommandMenuWidget;
+private:
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UQuantitySelectWidget> QuantityInputWidgetClass;
+	UPROPERTY()
+	UQuantitySelectWidget* CurrentInputWidget;
+public:
+	void OpenQuantityInputWidget(const FText& Title, int32 CurrentVal, FOnQuantityInputConfirm Callback);
+	void CloseQuantityInputWidget();
+private:
+	
 	void SpawnCommandMenu();
 	void UpdateCommandMenu();
 };
