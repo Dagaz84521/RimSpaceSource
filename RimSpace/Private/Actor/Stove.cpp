@@ -75,7 +75,12 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 		// 这里演示简单逻辑：检查通过才干活
 		if (!HasIngredients(*TaskData))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[Stove]3：原料不足，无法开始工作，跳过工作流程。"));
+			UE_LOG(LogTemp, Warning, TEXT("[Stove] 原料不足，中断工作。"));
+			if (CurrentWorker)
+			{
+				CurrentWorker->SetActionState(ECharacterActionState::Idle);
+			}
+			SetWorker(nullptr, 0);
 			return;
 		}
 	}

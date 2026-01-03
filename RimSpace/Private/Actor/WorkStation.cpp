@@ -137,7 +137,16 @@ void AWorkStation::UpdateEachMinute_Implementation(int32 NewMinute)
 		// A. 直接中断工作 (SetWorker(nullptr, 0))
 		// B. 保持等待 (什么都不做)
 		// 这里演示简单逻辑：检查通过才干活
-		if (!HasIngredients(*TaskData)) return; 
+		if (!HasIngredients(*TaskData))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Stove] 原料不足，中断工作。"));
+			if (CurrentWorker)
+			{
+				CurrentWorker->SetActionState(ECharacterActionState::Idle);
+			}
+			SetWorker(nullptr, 0);
+			return;
+		}
 	}
 
 	// 5. 增加进度

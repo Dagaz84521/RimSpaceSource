@@ -111,6 +111,7 @@ void ARimSpaceCharacterBase::OnMoveCompleted(FAIRequestID RequestID, EPathFollow
 
 	CurrentPlace = TargetPlace;
 	TargetPlace = nullptr;
+	CurrentActionState = ECharacterActionState::Idle;
 
 	if (CurrentPlace && CurrentPlace->GetInteractionType() == EInteractionType::EAT_Stove)
 	{
@@ -122,17 +123,67 @@ void ARimSpaceCharacterBase::OnMoveCompleted(FAIRequestID RequestID, EPathFollow
         
 		ExecuteAgentCommand(UseCmd);
 	}
-	
 }
 
 bool ARimSpaceCharacterBase::TakeItem(int32 ItemID, int32 Count)
 {
-	return true;
+	if (CurrentPlace)
+	{
+		UInventoryComponent* TargetInventory = CurrentPlace->GetComponentByClass<UInventoryComponent>();
+		if (TargetInventory != nullptr && CarriedItems != nullptr)
+		{
+			FItemStack ToTake;
+			ToTake.ItemID = ItemID;
+			ToTake.Count = Count;
+
+			if (TargetInventory->RemoveItem(ToTake))
+			{
+				CarriedItems->AddItem(ToTake);
+				return true;
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 目标地点物品不足，无法取出!"));
+				return false; // 目标地点物品不足
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 目标地点没有库存组件!"));
+			return false; // 目标地点没有库存组件
+		}
+	}
+	return false; // 没有当前地点
 }
 
 bool ARimSpaceCharacterBase::PutItem(int32 ItemId, int32 Count)
 {
-	return true;
+	if (CurrentPlace)
+	{
+		UInventoryComponent* TargetInventory = CurrentPlace->GetComponentByClass<UInventoryComponent>();
+		if (TargetInventory != nullptr && CarriedItems != nullptr)
+		{
+			FItemStack ToPut;
+			ToPut.ItemID = ItemId;
+			ToPut.Count = Count;
+			if (CarriedItems->RemoveItem(ToPut))
+			{
+				TargetInventory->AddItem(ToPut);
+				return true;
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 背包内物品不足，无法放置!"));
+				return false; // 背包内物品不足
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 目标地点没有库存组件!"));
+			return false; // 目标地点没有库存组件
+		}
+	}	
+	return false;
 }
 
 bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
@@ -334,13 +385,17 @@ FString ARimSpaceCharacterBase::GetActorName() const
 
 FString ARimSpaceCharacterBase::GetActorInfo() const
 {
-	return FString::Printf(
-		TEXT("Hunger: %.1f / %.1f\nEnergy: %.1f / %.1f"),
-		CharacterStats.Hunger,
-		CharacterStats.MaxHunger,
-		CharacterStats.Energy,
-		CharacterStats.MaxEnergy
-	);
+	FString Info;
+	Info += FString::Printf(TEXT("=== 角色状态 ===\n"));
+	Info += FString::Printf(TEXT("体力: %.1f / %.1f\n"), CharacterStats.Energy, CharacterStats.MaxEnergy);
+	Info += FString::Printf(TEXT("饱食度: %.1f / %.1f\n"), CharacterStats.Hunger, CharacterStats.MaxHunger);
+	Info += FString::Printf(TEXT("当前状态: %s\n"), *UEnum::GetValueAsString(CurrentActionState));
+	Info += FString::Printf(TEXT("=== 背包物品 ===\n"));
+	if (CarriedItems)
+	{
+		Info += CarriedItems->GetInventoryInfo();
+	}
+	return Info;
 }
 
 bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)
@@ -349,6 +404,7 @@ bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)
 	{
 	case EAgentCommandType::Move:
 		MoveTo(Command.TargetName);
+		CurrentActionState = ECharacterActionState::Moving;
 		return true;
 	case EAgentCommandType::Take:
 		return TakeItem(Command.ParamID, Command.Count);

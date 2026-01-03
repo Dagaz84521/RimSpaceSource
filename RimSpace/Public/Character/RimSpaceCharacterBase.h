@@ -78,6 +78,8 @@ public:
 	bool ExecuteAgentCommand(const FAgentCommand& Command);
 	ECharacterActionState GetActionState() const;
 
+	FORCEINLINE void SetActionState(ECharacterActionState NewActionState) { CurrentActionState = NewActionState; }
+
 protected:
 	virtual void BeginPlay() override;
 
