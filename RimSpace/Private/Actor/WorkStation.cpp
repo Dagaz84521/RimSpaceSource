@@ -188,8 +188,12 @@ void AWorkStation::UpdateEachMinute_Implementation(int32 NewMinute)
 
 		// 重置进度，准备下一个循环
 		CurrentWorkProgress = 0;
-		
-		CurrentTaskID = 0; 
+		CurrentTaskID = 0;
+		if (CurrentWorker)
+		{
+			CurrentWorker->SetActionState(ECharacterActionState::Idle);
+			SetWorker(nullptr, 0);
+		}
 	}
 }
 

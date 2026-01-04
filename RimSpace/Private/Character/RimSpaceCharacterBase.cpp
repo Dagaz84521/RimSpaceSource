@@ -127,63 +127,88 @@ void ARimSpaceCharacterBase::OnMoveCompleted(FAIRequestID RequestID, EPathFollow
 
 bool ARimSpaceCharacterBase::TakeItem(int32 ItemID, int32 Count)
 {
-	if (CurrentPlace)
+	if (!CurrentPlace) return false;
+	
+	UInventoryComponent* TargetInventory = CurrentPlace->GetComponentByClass<UInventoryComponent>();
+    
+	// 基础判空
+	if (!TargetInventory || !CarriedItems)
 	{
-		UInventoryComponent* TargetInventory = CurrentPlace->GetComponentByClass<UInventoryComponent>();
-		if (TargetInventory != nullptr && CarriedItems != nullptr)
-		{
-			FItemStack ToTake;
-			ToTake.ItemID = ItemID;
-			ToTake.Count = Count;
+		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 缺少库存组件!"));
+		return false;
+	}
 
-			if (TargetInventory->RemoveItem(ToTake))
-			{
-				CarriedItems->AddItem(ToTake);
-				return true;
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 目标地点物品不足，无法取出!"));
-				return false; // 目标地点物品不足
-			}
+	FItemStack ToTake;
+	ToTake.ItemID = ItemID;
+	ToTake.Count = Count;
+
+	// === 修改开始：防止物品丢失 ===
+    
+	// 1. 先尝试从目标移除
+	if (TargetInventory->RemoveItem(ToTake))
+	{
+		// 2. 尝试添加到自己背包
+		if (CarriedItems->AddItem(ToTake))
+		{
+			// 成功：交易完成
+			return true;
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 目标地点没有库存组件!"));
-			return false; // 目标地点没有库存组件
+			// 失败（背包满了）：必须把物品还给目标容器！
+			UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 背包已满，操作回滚!"));
+			TargetInventory->AddItem(ToTake); 
+			return false;
 		}
 	}
-	return false; // 没有当前地点
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 目标地点物品不足!"));
+		return false;
+	}
 }
 
 bool ARimSpaceCharacterBase::PutItem(int32 ItemId, int32 Count)
 {
-	if (CurrentPlace)
+	if (!CurrentPlace) return false;
+
+	UInventoryComponent* TargetInventory = CurrentPlace->GetComponentByClass<UInventoryComponent>();
+    
+	if (!TargetInventory || !CarriedItems)
 	{
-		UInventoryComponent* TargetInventory = CurrentPlace->GetComponentByClass<UInventoryComponent>();
-		if (TargetInventory != nullptr && CarriedItems != nullptr)
+		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 缺少库存组件!"));
+		return false; 
+	}
+
+	FItemStack ToPut;
+	ToPut.ItemID = ItemId;
+	ToPut.Count = Count;
+
+	// === 修改开始：防止物品丢失 ===
+
+	// 1. 先从自己背包移除
+	if (CarriedItems->RemoveItem(ToPut))
+	{
+		// 2. 尝试放入目标容器
+		if (TargetInventory->AddItem(ToPut))
 		{
-			FItemStack ToPut;
-			ToPut.ItemID = ItemId;
-			ToPut.Count = Count;
-			if (CarriedItems->RemoveItem(ToPut))
-			{
-				TargetInventory->AddItem(ToPut);
-				return true;
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 背包内物品不足，无法放置!"));
-				return false; // 背包内物品不足
-			}
+			// 成功
+			return true;
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 目标地点没有库存组件!"));
-			return false; // 目标地点没有库存组件
+			// 失败（箱子满了）：把物品还给自己
+			UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 目标容器已满，操作回滚!"));
+			CarriedItems->AddItem(ToPut);
+			return false;
 		}
-	}	
-	return false;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] PutItem: 背包内物品不足!"));
+		return false; 
+	}
+	// === 修改结束 ===
 }
 
 bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)

@@ -1,5 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
+// 因为历史原因，该类已废弃
 #pragma once
 
 #include "CoreMinimal.h"
