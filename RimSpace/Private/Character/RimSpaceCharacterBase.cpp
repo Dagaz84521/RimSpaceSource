@@ -14,6 +14,7 @@
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "RimSpace/RimSpace.h"
 #include "Subsystem/ActorManagerSubsystem.h"
+#include "Subsystem/CharacterManagerSubsystem.h"
 
 // Sets default values
 ARimSpaceCharacterBase::ARimSpaceCharacterBase()
@@ -41,19 +42,8 @@ void ARimSpaceCharacterBase::BeginPlay()
 		);
 	}
 	
-	// == 测试生产流程 ==
-	FTimerHandle TestTimer;
-	GetWorld()->GetTimerManager().SetTimer(TestTimer, [this]()
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Test] Agent: 开始寻找灶台..."));
-        
-		FAgentCommand MoveCmd;
-		MoveCmd.CommandType = EAgentCommandType::Move;
-		MoveCmd.TargetName = FName("Stove"); // 确保场景里的 Stove 叫这个名字
-        
-		ExecuteAgentCommand(MoveCmd);
-        
-	}, 2.0f, false); // 延迟2秒执行，等待地图加载
+	// 注册到 CharacterManagerSubsystem
+	GetWorld()->GetSubsystem<UCharacterManagerSubsystem>()->RegisterCharacterWithName(FName(*GetActorName()), this);
 }
 
 bool ARimSpaceCharacterBase::MoveTo(const FName& TargetName)
