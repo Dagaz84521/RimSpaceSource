@@ -24,7 +24,7 @@ ARimSpaceCharacterBase::ARimSpaceCharacterBase()
 	AIControllerClass = ARimSpaceAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 	CarriedItems = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
-
+	CharacterName = TEXT("Character");
 }
 
 // Called when the game starts or when spawned
@@ -395,7 +395,7 @@ void ARimSpaceCharacterBase::UnHighlightActor()
 
 FString ARimSpaceCharacterBase::GetActorName() const
 {
-	return TEXT("Character");
+	return CharacterName.ToString();
 }
 
 FString ARimSpaceCharacterBase::GetActorInfo() const
@@ -411,6 +411,14 @@ FString ARimSpaceCharacterBase::GetActorInfo() const
 		Info += CarriedItems->GetInventoryInfo();
 	}
 	return Info;
+}
+
+void ARimSpaceCharacterBase::InitialCharacter(const FRimSpaceCharacterStats& Stats,
+	const FRimSpaceCharacterSkills& Skills, const FName& Name)
+{
+	CharacterStats = Stats;
+	CharacterSkills = Skills;
+	CharacterName = Name;
 }
 
 bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)

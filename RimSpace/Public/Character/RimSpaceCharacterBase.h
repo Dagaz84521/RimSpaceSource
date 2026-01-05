@@ -75,6 +75,8 @@ public:
 	virtual FString GetActorName() const override;
 	virtual FString GetActorInfo() const override;
 
+	void InitialCharacter(const FRimSpaceCharacterStats& Stats, const FRimSpaceCharacterSkills& Skills, const FName& Name);
+
 	bool ExecuteAgentCommand(const FAgentCommand& Command);
 	ECharacterActionState GetActionState() const;
 
@@ -93,6 +95,9 @@ protected:
 
 	int32 FindFoodInInventory() const; // 在背包中寻找食物
 
+	UPROPERTY(EditAnywhere)
+	FName CharacterName;
+	
 	// 人物基本属性
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character")
 	FRimSpaceCharacterStats CharacterStats;
