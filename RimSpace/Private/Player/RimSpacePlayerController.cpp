@@ -6,10 +6,12 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Actor/RimSpaceActorBase.h"
+#include "GameInstance/RimSpaceGameInstance.h"
 #include "UI/QuantitySelectWidget.h"
 #include "Interface/CommandProvider.h"
 #include "UI/StatusInfoWidget.h"
 #include "Interface/InteractionInterface.h"
+#include "Subsystem/RimSpaceTimeSubsystem.h"
 #include "UI/CommandMenuWidget.h"
 
 void ARimSpacePlayerController::BeginPlay()
@@ -26,6 +28,15 @@ void ARimSpacePlayerController::BeginPlay()
 		{
 			HoverInfoWidget->AddToViewport();
 			HoverInfoWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+
+	if (URimSpaceGameInstance* GI = Cast<URimSpaceGameInstance>(GetGameInstance()))
+	{
+		if (URimSpaceTimeSubsystem* TimeSubsystem = GI->GetSubsystem<URimSpaceTimeSubsystem>())
+		{
+			// 设定从早上 8 点开始
+			TimeSubsystem->StartTimeSystem();
 		}
 	}
 }

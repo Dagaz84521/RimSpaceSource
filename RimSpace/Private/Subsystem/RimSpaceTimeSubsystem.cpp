@@ -15,6 +15,10 @@ void URimSpaceTimeSubsystem::Deinitialize()
 
 void URimSpaceTimeSubsystem::Tick(float DeltaTime)
 {
+	if (!bIsTimeRunning)
+	{
+		return;
+	}
 	float GameDelta = DeltaTime * TimeScale;
 	TimeAccumulator += GameDelta;
 
@@ -53,6 +57,20 @@ void URimSpaceTimeSubsystem::Tick(float DeltaTime)
 TStatId URimSpaceTimeSubsystem::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(URimSpaceTimeSubsystem, STATGROUP_Tickables);
+}
+
+void URimSpaceTimeSubsystem::StartTimeSystem(int32 StartDay, int32 StartHour, int32 StartMinute)
+{
+	Day = StartDay;
+	Hour = StartHour;
+	Minute = StartMinute;
+	TotalTicks = (Day - 1) * 24 * 60 + Hour * 60 + Minute;
+	bIsTimeRunning = true;
+}
+
+void URimSpaceTimeSubsystem::StopTimeSystem()
+{
+	bIsTimeRunning = false;
 }
 
 void URimSpaceTimeSubsystem::SetTimeScale(float NewScale)

@@ -49,4 +49,5 @@ void UMainMenuWidget::OnConnectionStatusUpdate(bool bSuccess, FString Message)
 
 void UMainMenuWidget::OnStartGameClicked()
 {
+	UGameplayStatics::OpenLevel(this, FName("RimSpaceLevel"));
 }
