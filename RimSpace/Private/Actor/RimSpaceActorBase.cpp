@@ -3,6 +3,9 @@
 
 #include "Actor/RimSpaceActorBase.h"
 #include "RimSpace/RimSpace.h"
+#include "JsonObjectConverter.h"
+#include "Component/InventoryComponent.h"
+#include "GameInstance/RimSpaceGameInstance.h"
 #include "Subsystem/ActorManagerSubsystem.h"
 #include "Subsystem/RimSpaceTimeSubsystem.h"
 
@@ -58,6 +61,20 @@ FString ARimSpaceActorBase::GetActorInfo() const
 {
 	// 默认返回空字符串
 	return FString();
+}
+
+TSharedPtr<FJsonObject> ARimSpaceActorBase::GetActorDataAsJson() const
+{
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	// 使用 JsonObjectConverter 将 Actor 的属性转换为 JSON 对象
+	JsonObject->SetStringField(TEXT("ActorName"), GetActorName());
+	JsonObject->SetStringField(TEXT("ActorType"), UEnum::GetValueAsString(ActorType));
+	// 如果有物品系统，添加物品
+	if (UInventoryComponent* InventoryComponent = GetComponentByClass<UInventoryComponent>())
+	{
+		JsonObject->SetObjectField(TEXT("Inventory"), InventoryComponent->GetInventoryDataAsJson());
+	}
+	return JsonObject;
 }
 
 void ARimSpaceActorBase::UpdateEachMinute_Implementation(int32 NewMinute)

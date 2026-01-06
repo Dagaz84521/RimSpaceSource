@@ -8,7 +8,7 @@ ABed::ABed()
 	ActorType = EInteractionType::EAT_Bed;
 }
 
-FString ABed::GetActorInfo()
+FString ABed::GetActorInfo() const
 {
 	return FString("This is a bed actor.");
 }

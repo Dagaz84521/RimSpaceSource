@@ -3,6 +3,11 @@
 
 #include "Subsystem/LLMCommunicationSubsystem.h"
 
+#include "GameInstance/RimSpaceGameInstance.h"
+#include "Subsystem/ActorManagerSubsystem.h"
+#include "Subsystem/CharacterManagerSubsystem.h"
+#include "Subsystem/RimSpaceTimeSubsystem.h"
+
 void ULLMCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -10,6 +15,39 @@ void ULLMCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
 
 void ULLMCommunicationSubsystem::SendGameStateToLLM()
 {
+	TSharedPtr<FJsonObject> RootJson = MakeShareable(new FJsonObject());
+	URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
+	if (TimeSubsystem)
+	{
+		FString FormattedTime = TimeSubsystem->GetFormattedTime();
+		RootJson->SetStringField("GameTime", FormattedTime);
+	}
+	UActorManagerSubsystem* ActorManager = GetWorld()->GetSubsystem<UActorManagerSubsystem>();
+	if (ActorManager)
+	{
+		RootJson->SetObjectField("Actors", ActorManager->GetActorsDataAsJson());
+	}
+
+	UCharacterManagerSubsystem* CharacterManager = GetWorld()->GetSubsystem<UCharacterManagerSubsystem>();
+	if (CharacterManager)
+	{
+		RootJson->SetObjectField("Characters", CharacterManager->GetCharactersDataAsJson());
+	}
+
+	// 序列化为字符串
+	FString RequestBody;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
+	FJsonSerializer::Serialize(RootJson.ToSharedRef(), Writer);
+	// 创建HTTP请求
+	FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
+	Request->SetURL(ServerURL + "/UpdateGameState");
+	Request->SetVerb("POST");
+	Request->SetHeader("Content-Type", "application/json");
+	Request->SetContentAsString(RequestBody);
+	Request->OnProcessRequestComplete().BindUObject(this, &ULLMCommunicationSubsystem::OnResponseReceived);
+	Request->ProcessRequest();
+
+	UE_LOG(LogTemp, Warning, TEXT("Process response successfully"));
 }
 
 void ULLMCommunicationSubsystem::CheckServerConnection()

@@ -17,3 +17,22 @@ ARimSpaceActorBase* UActorManagerSubsystem::GetActorByName(const FName& Name)
 {
 	return RegisteredActors.Contains(Name) ? RegisteredActors[Name] : nullptr;
 }
+
+TSharedPtr<FJsonObject> UActorManagerSubsystem::GetActorsDataAsJson() const
+{
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	TArray<TSharedPtr<FJsonValue>> ActorsJsonArray;
+
+	for (const auto& Pair : RegisteredActors)
+	{
+		ARimSpaceActorBase* Actor = Pair.Value;
+		if (Actor)
+		{
+			TSharedPtr<FJsonObject> ActorJson = Actor->GetActorDataAsJson();
+			ActorsJsonArray.Add(MakeShareable(new FJsonValueObject(ActorJson)));
+		}
+	}
+
+	JsonObject->SetArrayField("Actors", ActorsJsonArray);
+	return JsonObject;
+}

@@ -28,4 +28,6 @@ public:
 	// Get information about the actor for UI display
 	virtual FString GetActorName() const = 0;
 	virtual FString GetActorInfo() const = 0;
+	// Get Information for LLM
+	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const = 0;
 };

@@ -27,8 +27,9 @@ public:
 	bool CheckItemIsAccepted(const FItemStack& Item);
 	int32 GetItemCount(int32 ItemID) const;
 
+	TSharedPtr<FJsonObject> GetInventoryDataAsJson() const;
+	
 	const TArray<FItemStack>& GetAllItems() const { return Items; }
-
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;

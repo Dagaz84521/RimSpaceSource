@@ -41,6 +41,8 @@ public:
 	int32 Minute = 0;
 	int32 Hour = 0;
 	int32 Day = 1;
+	UFUNCTION()
+	FString GetFormattedTime() const;
 
 	// 事件广播
 	UPROPERTY(BlueprintAssignable)

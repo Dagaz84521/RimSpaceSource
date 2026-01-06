@@ -15,5 +15,5 @@ class RIMSPACE_API ABed : public ARimSpaceActorBase
 	GENERATED_BODY()
 public:
 	ABed();
-	FString GetActorInfo();
+	virtual FString GetActorInfo() const;
 };

@@ -413,8 +413,35 @@ FString ARimSpaceCharacterBase::GetActorInfo() const
 	return Info;
 }
 
+TSharedPtr<FJsonObject> ARimSpaceCharacterBase::GetActorDataAsJson() const
+{
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+
+	JsonObject->SetStringField("CharacterName", CharacterName.ToString());
+
+	if (CarriedItems)
+	{
+		JsonObject->SetObjectField("Inventory", CarriedItems->GetInventoryDataAsJson());
+	}
+	
+	TSharedPtr<FJsonObject> StatsObject = MakeShareable(new FJsonObject);
+	StatsObject->SetNumberField("Hunger", CharacterStats.Hunger);
+	StatsObject->SetNumberField("MaxHunger", CharacterStats.MaxHunger);
+	StatsObject->SetNumberField("Energy", CharacterStats.Energy);
+	StatsObject->SetNumberField("MaxEnergy", CharacterStats.MaxEnergy);
+	JsonObject->SetObjectField("CharacterStats", StatsObject);
+
+	TSharedPtr<FJsonObject> SkillsObject = MakeShareable(new FJsonObject);
+	SkillsObject->SetBoolField("CanCook", CharacterSkills.bCanCook);
+	SkillsObject->SetBoolField("CanFarm", CharacterSkills.bCanFarm);
+	SkillsObject->SetBoolField("CanCraft", CharacterSkills.bCanCraft);
+	JsonObject->SetObjectField("CharacterSkills", SkillsObject);
+	
+	return JsonObject;
+}
+
 void ARimSpaceCharacterBase::InitialCharacter(const FRimSpaceCharacterStats& Stats,
-	const FRimSpaceCharacterSkills& Skills, const FName& Name)
+                                              const FRimSpaceCharacterSkills& Skills, const FName& Name)
 {
 	CharacterStats = Stats;
 	CharacterSkills = Skills;

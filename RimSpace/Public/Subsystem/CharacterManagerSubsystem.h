@@ -20,6 +20,7 @@ public:
 	void RegisterCharacterWithName(const FName& Name, ARimSpaceCharacterBase* Character);
 	ARimSpaceCharacterBase* GetCharacterByName(const FName& Name) const;
 	bool ExecuteCommand(const FAgentCommand& Command);
+	TSharedPtr<FJsonObject> GetCharactersDataAsJson() const;
 private:
 	TMap<FName, TObjectPtr<ARimSpaceCharacterBase>> RegisteredCharacters;
 };

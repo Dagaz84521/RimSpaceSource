@@ -25,9 +25,11 @@ public:
 	virtual void UnHighlightActor() override;
 	virtual FString GetActorName() const override;
 	virtual FString GetActorInfo() const override;
+	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const override;
 	// TimeAffectable implementation
 	virtual void UpdateEachMinute_Implementation(int32 NewMinute);
 	virtual void UpdateEachHour_Implementation(int32 NewHour);
+	
 
 	USceneComponent* GetInteractionPoint() const { return InteractionPoint; }
 

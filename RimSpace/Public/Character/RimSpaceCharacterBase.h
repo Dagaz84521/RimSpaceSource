@@ -69,11 +69,12 @@ public:
 	
 	virtual void UpdateEachMinute_Implementation(int32 NewMinute) override;
 	virtual void UpdateEachHour_Implementation(int32 NewHour) override;
-
+	// Interaction Interface
 	virtual void HighlightActor() override;
 	virtual void UnHighlightActor() override;
 	virtual FString GetActorName() const override;
 	virtual FString GetActorInfo() const override;
+	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const override;
 
 	void InitialCharacter(const FRimSpaceCharacterStats& Stats, const FRimSpaceCharacterSkills& Skills, const FName& Name);
 

@@ -17,6 +17,7 @@ class RIMSPACE_API UActorManagerSubsystem : public UWorldSubsystem
 public:
 	void RegisterActorWithName(const FName& Name, ARimSpaceActorBase* Actor);
 	ARimSpaceActorBase* GetActorByName(const FName& Name);
+	TSharedPtr<FJsonObject> GetActorsDataAsJson() const;
 private:
-	TMap<FName, ARimSpaceActorBase*> RegisteredActors;
+	TMap<FName, TObjectPtr<ARimSpaceActorBase>> RegisteredActors;
 };

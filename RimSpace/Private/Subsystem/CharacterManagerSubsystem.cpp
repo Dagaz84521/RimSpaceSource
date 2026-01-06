@@ -40,4 +40,23 @@ bool UCharacterManagerSubsystem::ExecuteCommand(const FAgentCommand& Command)
     return Character->ExecuteAgentCommand(Command);
 }
 
+TSharedPtr<FJsonObject> UCharacterManagerSubsystem::GetCharactersDataAsJson() const
+{
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	TArray<TSharedPtr<FJsonValue>> CharactersJsonArray;
+
+	for (const auto& Pair : RegisteredCharacters)
+	{
+		ARimSpaceCharacterBase* Character = Pair.Value;
+		if (Character)
+		{
+			TSharedPtr<FJsonObject> CharacterJson = Character->GetActorDataAsJson();
+			CharactersJsonArray.Add(MakeShareable(new FJsonValueObject(CharacterJson)));
+		}
+	}
+
+	JsonObject->SetArrayField("Characters", CharactersJsonArray);
+	return JsonObject;
+}
+
 

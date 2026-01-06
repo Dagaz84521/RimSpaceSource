@@ -77,3 +77,8 @@ void URimSpaceTimeSubsystem::SetTimeScale(float NewScale)
 {
 	TimeScale = NewScale;
 }
+
+FString URimSpaceTimeSubsystem::GetFormattedTime() const
+{
+	return FString::Printf(TEXT("Day %d  %02d:%02d"), Day, Hour, Minute);
+}
