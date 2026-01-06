@@ -3,6 +3,7 @@
 
 #include "Subsystem/LLMCommunicationSubsystem.h"
 
+#include "JsonObjectConverter.h"
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "Subsystem/ActorManagerSubsystem.h"
 #include "Subsystem/CharacterManagerSubsystem.h"
@@ -50,6 +51,64 @@ void ULLMCommunicationSubsystem::SendGameStateToLLM()
 	UE_LOG(LogTemp, Warning, TEXT("Process response successfully"));
 }
 
+void ULLMCommunicationSubsystem::RequestNextAgentCommand(FName CharacterName)
+{// 1. 暂停游戏时间 (保持上一轮的逻辑)
+    URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
+    if (TimeSubsystem)
+    {
+        TimeSubsystem->StopTimeSystem();
+    }
+
+    // 2. 记录开始时间
+    RequestStartTime = FPlatformTime::Seconds();
+
+    // 3. 构建请求数据 (这是修改的重点)
+    TSharedPtr<FJsonObject> RootJson = MakeShareable(new FJsonObject());
+    
+    // A. 基础请求信息
+    RootJson->SetStringField("RequestType", "GetInstruction");
+    RootJson->SetStringField("TargetAgent", CharacterName.ToString());
+
+    // B. 收集世界状态 (把之前的 SendGameStateToLLM 逻辑搬过来)
+    
+    // B.1 时间信息
+    if (TimeSubsystem)
+    {
+        RootJson->SetStringField("GameTime", TimeSubsystem->GetFormattedTime());
+    }
+
+    // B.2 环境中所有 Actor 的信息 (灶台、工作台、仓库等)
+    UActorManagerSubsystem* ActorManager = GetWorld()->GetSubsystem<UActorManagerSubsystem>();
+    if (ActorManager)
+    {
+        // 假设 ActorManager 已经实现了 GetActorsDataAsJson
+        RootJson->SetObjectField("Environment", ActorManager->GetActorsDataAsJson());
+    }
+
+    // B.3 所有角色的信息 (尤其是为了知道其他人在干嘛，避免抢同一个工作台)
+    UCharacterManagerSubsystem* CharacterManager = GetWorld()->GetSubsystem<UCharacterManagerSubsystem>();
+    if (CharacterManager)
+    {
+        // 假设 CharacterManager 已经实现了 GetCharactersDataAsJson
+        RootJson->SetObjectField("Characters", CharacterManager->GetCharactersDataAsJson());
+    }
+
+    // 4. 序列化并发送
+    FString RequestBody;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
+    FJsonSerializer::Serialize(RootJson.ToSharedRef(), Writer);
+
+    FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
+    Request->SetURL(ServerURL + "/GetInstruction"); // 统一使用获取指令的接口
+    Request->SetVerb("POST");
+    Request->SetHeader("Content-Type", "application/json");
+    Request->SetContentAsString(RequestBody);
+    Request->OnProcessRequestComplete().BindUObject(this, &ULLMCommunicationSubsystem::OnCommandResponseReceived);
+    Request->ProcessRequest();
+
+    UE_LOG(LogTemp, Log, TEXT("Requesting command for %s with Full World State. Game Paused."), *CharacterName.ToString());
+}
+
 void ULLMCommunicationSubsystem::CheckServerConnection()
 {
 	FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
@@ -81,9 +140,54 @@ void ULLMCommunicationSubsystem::OnCheckConnectionComplete(FHttpRequestPtr Reque
 	UE_LOG(LogTemp, Warning, TEXT("Server Connection Failed."));
 }
 
-void ULLMCommunicationSubsystem::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
+void ULLMCommunicationSubsystem::OnCommandResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
 	bool bWasSuccessful)
 {
+}
+
+void ULLMCommunicationSubsystem::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
+                                                    bool bWasSuccessful)
+{
+	// 1. 计算时延
+	double EndTime = FPlatformTime::Seconds();
+	double Latency = (EndTime - RequestStartTime) * 1000.0f; // 转换为毫秒
+
+	// 记录到日志，方便论文实验数据收集
+	UE_LOG(LogTemp, Warning, TEXT("[Experiment Data] Inference Latency: %.2f ms"), Latency);
+
+	// 2. 恢复游戏时间
+	URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
+	if (TimeSubsystem)
+	{
+		TimeSubsystem->ResumeTimeSystem();
+	}
+
+	if (bWasSuccessful && Response.IsValid() && Response->GetResponseCode() == 200)
+	{
+		FString ResponseStr = Response->GetContentAsString();
+		UE_LOG(LogTemp, Log, TEXT("Received Command: %s"), *ResponseStr);
+
+		// 3. 解析指令
+		FAgentCommand NewCommand;
+		// 假设服务器返回的 JSON 符合 FAgentCommand 的结构
+		if (FJsonObjectConverter::JsonObjectStringToUStruct(ResponseStr, &NewCommand, 0, 0))
+		{
+			// 4. 执行指令
+			UCharacterManagerSubsystem* CharacterManager = GetWorld()->GetSubsystem<UCharacterManagerSubsystem>();
+			if (CharacterManager)
+			{
+				CharacterManager->ExecuteCommand(NewCommand);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to parse command JSON."));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to get command from server."));
+	}
 }
 
 EAgentCommandType ULLMCommunicationSubsystem::StringToCommandType(const FString& CmdStr)

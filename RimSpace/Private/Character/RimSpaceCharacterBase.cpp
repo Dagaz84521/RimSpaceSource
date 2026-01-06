@@ -15,6 +15,7 @@
 #include "RimSpace/RimSpace.h"
 #include "Subsystem/ActorManagerSubsystem.h"
 #include "Subsystem/CharacterManagerSubsystem.h"
+#include "Subsystem/LLMCommunicationSubsystem.h"
 
 // Sets default values
 ARimSpaceCharacterBase::ARimSpaceCharacterBase()
@@ -373,6 +374,24 @@ void ARimSpaceCharacterBase::UpdateEachMinute_Implementation(int32 NewMinute)
 			}
 		}
 		break;
+	case ECharacterActionState::Waiting:
+		if (WaitRemainingMinutes > 0)
+		{
+			WaitRemainingMinutes--;
+            
+			// 等待时的消耗（比工作低，比 Idle 略低或持平）
+			CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy - 0.05f, 0.f, 100.f);
+			CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.05f, 0.f, 100.f);
+
+			// 倒计时结束
+			if (WaitRemainingMinutes <= 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("Agent %s finished waiting."), *CharacterName.ToString());
+				// 切换回 Idle，根据上一节的修改，这里会自动触发 FinishCommandAndRequestNext()
+				SetActionState(ECharacterActionState::Idle);
+			}
+		}
+		break;
 	}
 }
 
@@ -450,18 +469,30 @@ void ARimSpaceCharacterBase::InitialCharacter(const FRimSpaceCharacterStats& Sta
 
 bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)
 {
+	bool bResult = false;
 	switch (Command.CommandType)
 	{
 	case EAgentCommandType::Move:
 		MoveTo(Command.TargetName);
-		CurrentActionState = ECharacterActionState::Moving;
+		SetActionState(ECharacterActionState::Moving);
 		return true;
 	case EAgentCommandType::Take:
-		return TakeItem(Command.ParamID, Command.Count);
+		bResult = TakeItem(Command.ParamID, Command.Count);
+		FinishCommandAndRequestNext();
+		return bResult;
 	case EAgentCommandType::Put:
-		return PutItem(Command.ParamID, Command.Count);
+		bResult = PutItem(Command.ParamID, Command.Count);
+		FinishCommandAndRequestNext();
+		return bResult;
 	case EAgentCommandType::Use:
 		return UseFacility(Command.ParamID);
+	case EAgentCommandType::Wait:
+		// 将 ParamID 作为等待的分钟数
+			WaitRemainingMinutes = Command.ParamID;
+		// 设为 Waiting 状态
+		SetActionState(ECharacterActionState::Waiting);
+		UE_LOG(LogTemp, Log, TEXT("Agent %s started waiting for %d minutes."), *CharacterName.ToString(), WaitRemainingMinutes);
+		return true;
 	default:
 		UE_LOG(LogTemp, Warning, TEXT("ExecuteAgentCommand: Received None or Unknown command."));
 		return false;
@@ -471,6 +502,29 @@ bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)
 ECharacterActionState ARimSpaceCharacterBase::GetActionState() const
 {
 	return CurrentActionState;
+}
+
+void ARimSpaceCharacterBase::SetActionState(ECharacterActionState NewActionState)
+{
+	bool bJustFinishedTask = (CurrentActionState != ECharacterActionState::Idle) && (NewActionState == ECharacterActionState::Idle);
+	CurrentActionState = NewActionState;
+	if (bJustFinishedTask)
+	{
+		FinishCommandAndRequestNext();
+	}
+}
+
+void ARimSpaceCharacterBase::FinishCommandAndRequestNext()
+{
+	// 防止在游戏开始初始化等情况下误触发
+	if (!GetWorld()) return;
+
+	UE_LOG(LogTemp, Log, TEXT("Character %s finished task. Requesting next..."), *CharacterName.ToString());
+
+	if (ULLMCommunicationSubsystem* LLMSubsystem = GetGameInstance()->GetSubsystem<ULLMCommunicationSubsystem>())
+	{
+		LLMSubsystem->RequestNextAgentCommand(FName(*CharacterName.ToString()));
+	}
 }
 
 

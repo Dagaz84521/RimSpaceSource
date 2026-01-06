@@ -29,6 +29,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void StopTimeSystem();
+	UFUNCTION(BlueprintCallable)
+	void ResumeTimeSystem();
 
 	// 倍速控制（1x，2x等）
 	UFUNCTION(BlueprintCallable)

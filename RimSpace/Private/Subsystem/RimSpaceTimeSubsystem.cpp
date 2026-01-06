@@ -80,6 +80,11 @@ void URimSpaceTimeSubsystem::StopTimeSystem()
 	bIsTimeRunning = false;
 }
 
+void URimSpaceTimeSubsystem::ResumeTimeSystem()
+{
+	bIsTimeRunning = true;
+}
+
 void URimSpaceTimeSubsystem::SetTimeScale(float NewScale)
 {
 	TimeScale = NewScale;

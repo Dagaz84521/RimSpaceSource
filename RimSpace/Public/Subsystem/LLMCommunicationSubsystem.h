@@ -40,16 +40,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "LLM")
 	void SendGameStateToLLM();
 	UFUNCTION(BlueprintCallable, Category = "LLM")
+	void RequestNextAgentCommand(FName CharacterName);
+	UFUNCTION(BlueprintCallable, Category = "LLM")
 	void CheckServerConnection();
 	UPROPERTY(BlueprintAssignable, Category = "LLM")
 	FOnServerConnectionStatusChanged OnConnectionStatusChanged;
 	
 private:
 	void OnCheckConnectionComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
+	void OnCommandResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 	void OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 	
 	FTimerHandle AutoUpdateTimerHandle;
 	EAgentCommandType StringToCommandType(const FString& CmdStr);
 	FString ServerURL = TEXT("http://localhost:5000");
+	double RequestStartTime = 0.0;
 	
 };

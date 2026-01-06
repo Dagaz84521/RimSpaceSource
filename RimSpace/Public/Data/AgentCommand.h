@@ -11,7 +11,8 @@ enum class EAgentCommandType : uint8
     Move,
     Take,
     Put,
-    Use
+    Use,
+    Wait
 };
 
 USTRUCT(BlueprintType)

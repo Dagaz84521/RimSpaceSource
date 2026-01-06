@@ -52,7 +52,8 @@ enum class ECharacterActionState : uint8
 	Moving      UMETA(DisplayName = "Moving"),
 	Working     UMETA(DisplayName = "Working"), // 正在向设施输送劳动力
 	Eating 		UMETA(DisplayName = "Eating"),  // 正在恢复饱食度
-	Sleeping    UMETA(DisplayName = "Sleeping") // 正在恢复自身状态
+	Sleeping    UMETA(DisplayName = "Sleeping"), // 正在恢复自身状态
+	Waiting    UMETA(DisplayName = "Waiting") // 等待下一指令
 };
 
 UCLASS()
@@ -81,7 +82,8 @@ public:
 	bool ExecuteAgentCommand(const FAgentCommand& Command);
 	ECharacterActionState GetActionState() const;
 
-	FORCEINLINE void SetActionState(ECharacterActionState NewActionState) { CurrentActionState = NewActionState; }
+	void SetActionState(ECharacterActionState NewActionState);
+	void FinishCommandAndRequestNext();
 
 protected:
 	virtual void BeginPlay() override;
@@ -128,4 +130,7 @@ protected:
 	int32 EatRemainingMinutes;
 	
 	float NutritionPerMinute = 0.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Character")
+	int32 WaitRemainingMinutes = 0;
 };
