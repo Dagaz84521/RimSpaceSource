@@ -35,6 +35,8 @@ struct FConfigCharacter
 	UPROPERTY()
 	FVector SpawnLocation = FVector::ZeroVector;
 	UPROPERTY()
+	FString Profession;
+	UPROPERTY()
 	FRimSpaceCharacterStats Stats;
 	UPROPERTY()
 	FRimSpaceCharacterSkills Skills;
@@ -63,6 +65,9 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSubclassOf<class ARimSpaceCharacterBase> DefaultCharacterClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config|Appearance")
+	TMap<FString, TObjectPtr<USkeletalMesh>> ProfessionMeshMap;
 
 private:
 	void LoadAndApplyConfig();

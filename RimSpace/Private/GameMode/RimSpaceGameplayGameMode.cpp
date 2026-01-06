@@ -157,7 +157,21 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
             // 1. 强制设置位置（如果是预设的，可能需要挪窝；如果是新生成的，其实已经对齐了，但再设一次无妨）
             TargetChar->SetActorLocation(Config.SpawnLocation);
         	TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
-			UE_LOG(LogTemp, Log, TEXT("Initialized character: %s"), *Config.CharacterName);
+        	// 2. 【新增】根据职业更换模型
+        	if (!Config.Profession.IsEmpty())
+        	{
+        		// 查找是否有对应的模型配置
+        		if (TObjectPtr<USkeletalMesh>* FoundMesh = ProfessionMeshMap.Find(Config.Profession))
+        		{
+        			// 获取角色的 Mesh 组件
+        			if (USkeletalMeshComponent* MeshComp = TargetChar->GetMesh())
+        			{
+        				// 替换模型
+        				MeshComp->SetSkeletalMesh(*FoundMesh);
+        			}
+        		}
+        	}
+        	UE_LOG(LogTemp, Log, TEXT("Initialized character: %s"), *Config.CharacterName);
         }
     }
 }

@@ -18,6 +18,7 @@ class RIMSPACE_API UCharacterManagerSubsystem : public UWorldSubsystem
 	GENERATED_BODY()
 public:
 	void RegisterCharacterWithName(const FName& Name, ARimSpaceCharacterBase* Character);
+	ARimSpaceCharacterBase* GetCharacterByName(const FName& Name) const;
 	bool ExecuteCommand(const FAgentCommand& Command);
 private:
 	TMap<FName, TObjectPtr<ARimSpaceCharacterBase>> RegisteredCharacters;

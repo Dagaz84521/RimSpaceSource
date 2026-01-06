@@ -15,6 +15,11 @@ void UCharacterManagerSubsystem::RegisterCharacterWithName(const FName& Name, AR
 	UE_LOG(LogTemp, Log, TEXT("Registered actor with name %s."), *Name.ToString());
 }
 
+ARimSpaceCharacterBase* UCharacterManagerSubsystem::GetCharacterByName(const FName& Name) const
+{
+	return RegisteredCharacters.Contains(Name) ? RegisteredCharacters[Name] : nullptr;
+}
+
 bool UCharacterManagerSubsystem::ExecuteCommand(const FAgentCommand& Command)
 {
     // 1. 查找已注册的角色
