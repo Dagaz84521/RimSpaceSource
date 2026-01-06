@@ -88,7 +88,7 @@ void ARimSpaceGameplayGameMode::ApplyStorageConfig(const TArray<FConfigStorage>&
 
 void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharacter>& CharacterConfigs)
 {
-	// 1. 获取场景中现有的所有角色（用于混合模式：如果场景里已经摆了，就直接用）
+    // 获取场景中现有的所有角色
     TArray<AActor*> FoundActors;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ARimSpaceCharacterBase::StaticClass(), FoundActors);
 
@@ -101,77 +101,78 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
         {
             if (ARimSpaceCharacterBase* Char = Cast<ARimSpaceCharacterBase>(Actor))
             {
-                // 注意：这里假设你有办法设置或获取 Actor 的唯一名称
-                // 如果是编辑器摆放的，GetActorLabel() 在打包后不可用，建议用 GetActorName() 或 tag
                 if (Char->GetActorName() == Config.CharacterName)
                 {
                     TargetChar = Char;
                     UE_LOG(LogTemp, Log, TEXT("Found existing character in level: %s"), *Config.CharacterName);
+                    // 现有角色已经执行过 BeginPlay，直接更新属性即可
+                    TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
                     break;
                 }
             }
         }
 
-        // --- 步骤 B: 如果没找到，就动态生成一个 (Spawn) ---
+        // --- 步骤 B: 如果没找到，就动态生成一个 (使用延迟生成) ---
         if (!TargetChar)
         {
             if (DefaultCharacterClass)
             {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-                // 设置生成时的名字（可选，主要用于调试）
-                SpawnParams.Name = FName(*Config.CharacterName);
+                FTransform SpawnTransform(FRotator::ZeroRotator, Config.SpawnLocation);
 
-                TargetChar = GetWorld()->SpawnActor<ARimSpaceCharacterBase>(
-                    DefaultCharacterClass, 
-                    Config.SpawnLocation, 
-                    FRotator::ZeroRotator, 
-                    SpawnParams
+                // 1. 使用 SpawnActorDeferred 进行延迟生成
+                // 这会创建 Actor 但暂不调用 BeginPlay
+                TargetChar = GetWorld()->SpawnActorDeferred<ARimSpaceCharacterBase>(
+                    DefaultCharacterClass,
+                    SpawnTransform,
+                    nullptr,
+                    nullptr,
+                    ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn
                 );
-                
+
                 if (TargetChar)
                 {
-                    UE_LOG(LogTemp, Log, TEXT("Spawned new character: %s"), *Config.CharacterName);
+                    // 2. 在 BeginPlay 之前初始化数据（设置正确的名字！）
+                    TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
                     
-                    // 【重要】如果是动态生成的，你需要手动把名字赋给它
-                    // 假设你在 CharacterBase 里有一个 SetActorName 或类似的函数
-                    // TargetChar->SetActorName(FName(*Config.CharacterName)); 
-                    
-                    // 或者通过 CharacterManager 注册
-                    if (UCharacterManagerSubsystem* CM = GetWorld()->GetSubsystem<UCharacterManagerSubsystem>())
+                    // 3. 设置职业模型（可选，放在这也行，或者 Finish 之后也行）
+                    if (!Config.Profession.IsEmpty())
                     {
-                        CM->RegisterCharacterWithName(FName(*Config.CharacterName), TargetChar);
+                        if (TObjectPtr<USkeletalMesh>* FoundMesh = ProfessionMeshMap.Find(Config.Profession))
+                        {
+                            if (USkeletalMeshComponent* MeshComp = TargetChar->GetMesh())
+                            {
+                                MeshComp->SetSkeletalMesh(*FoundMesh);
+                            }
+                        }
                     }
+
+                    // 4. 手动完成生成过程，这将触发 BeginPlay
+                    // 此时 BeginPlay 里的 GetActorName() 将返回刚才设置好的 Config.CharacterName
+                    UGameplayStatics::FinishSpawningActor(TargetChar, SpawnTransform);
+                    
+                    UE_LOG(LogTemp, Log, TEXT("Spawned and Initialized new character: %s"), *Config.CharacterName);
                 }
             }
             else
             {
                 UE_LOG(LogTemp, Error, TEXT("DefaultCharacterClass is not set in GameMode! Cannot spawn %s"), *Config.CharacterName);
-                continue;
             }
         }
-
-        // --- 步骤 C: 统一应用属性 ---
-        if (TargetChar)
+        else 
         {
-            // 1. 强制设置位置（如果是预设的，可能需要挪窝；如果是新生成的，其实已经对齐了，但再设一次无妨）
+            // 如果是场景中已有的角色，可能需要在这里处理模型更换（如果需要的话）
+            if (!Config.Profession.IsEmpty())
+            {
+                 if (TObjectPtr<USkeletalMesh>* FoundMesh = ProfessionMeshMap.Find(Config.Profession))
+                 {
+                     if (USkeletalMeshComponent* MeshComp = TargetChar->GetMesh())
+                     {
+                         MeshComp->SetSkeletalMesh(*FoundMesh);
+                     }
+                 }
+            }
+            // 确保位置正确
             TargetChar->SetActorLocation(Config.SpawnLocation);
-        	TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
-        	// 2. 【新增】根据职业更换模型
-        	if (!Config.Profession.IsEmpty())
-        	{
-        		// 查找是否有对应的模型配置
-        		if (TObjectPtr<USkeletalMesh>* FoundMesh = ProfessionMeshMap.Find(Config.Profession))
-        		{
-        			// 获取角色的 Mesh 组件
-        			if (USkeletalMeshComponent* MeshComp = TargetChar->GetMesh())
-        			{
-        				// 替换模型
-        				MeshComp->SetSkeletalMesh(*FoundMesh);
-        			}
-        		}
-        	}
-        	UE_LOG(LogTemp, Log, TEXT("Initialized character: %s"), *Config.CharacterName);
         }
     }
 }

@@ -15,7 +15,19 @@ def health_check():
 @app.route('/UpdateGameState', methods=['POST'])
 def game_state_update():
     data = request.json
-    print(f"收到游戏状态，包含 {len(data.get('Actors', []))} 个Actor")
+    
+    # === 新增：格式化打印完整 JSON ===
+    print("\n" + "="*20 + " 收到完整 JSON 数据 " + "="*20)
+    # indent=4 用于缩进，ensure_ascii=False 确保中文能正常显示
+    print(json.dumps(data, indent=4, ensure_ascii=False))
+    print("="*60 + "\n")
+    # ==============================
+
+    # 下面是你之前的逻辑
+    # print(f"收到游戏状态，包含 {len(data.get('Actors', []))} 个Actor") 
+    
+    # 记得补充返回值，否则 UE5 会报错
+    return jsonify({"status": "received"}), 200
 
 if __name__ == '__main__':
     # host='0.0.0.0' 允许局域网访问，port=5000 是默认端口
