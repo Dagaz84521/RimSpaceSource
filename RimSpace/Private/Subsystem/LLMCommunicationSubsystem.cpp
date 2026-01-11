@@ -52,17 +52,11 @@ void ULLMCommunicationSubsystem::SendGameStateToLLM()
 }
 
 void ULLMCommunicationSubsystem::RequestNextAgentCommand(FName CharacterName)
-{// 1. 暂停游戏时间 (保持上一轮的逻辑)
+{
+	// 1. 暂停游戏时间 (保持上一轮的逻辑)
     URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
-    if (TimeSubsystem)
-    {
-        TimeSubsystem->StopTimeSystem();
-    }
-
-    // 2. 记录开始时间
-    RequestStartTime = FPlatformTime::Seconds();
-
-    // 3. 构建请求数据 (这是修改的重点)
+	
+    // 2. 构建请求数据 (这是修改的重点)
     TSharedPtr<FJsonObject> RootJson = MakeShareable(new FJsonObject());
     
     // A. 基础请求信息
@@ -93,7 +87,7 @@ void ULLMCommunicationSubsystem::RequestNextAgentCommand(FName CharacterName)
         RootJson->SetObjectField("Characters", CharacterManager->GetCharactersDataAsJson());
     }
 
-    // 4. 序列化并发送
+    // 3. 序列化并发送
     FString RequestBody;
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
     FJsonSerializer::Serialize(RootJson.ToSharedRef(), Writer);
@@ -143,31 +137,13 @@ void ULLMCommunicationSubsystem::OnCheckConnectionComplete(FHttpRequestPtr Reque
 void ULLMCommunicationSubsystem::OnCommandResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
 	bool bWasSuccessful)
 {
-}
-
-void ULLMCommunicationSubsystem::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
-                                                    bool bWasSuccessful)
-{
-	// 1. 计算时延
-	double EndTime = FPlatformTime::Seconds();
-	double Latency = (EndTime - RequestStartTime) * 1000.0f; // 转换为毫秒
-
-	// 记录到日志，方便论文实验数据收集
-	UE_LOG(LogTemp, Warning, TEXT("[Experiment Data] Inference Latency: %.2f ms"), Latency);
-
-	// 2. 恢复游戏时间
-	URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
-	if (TimeSubsystem)
-	{
-		TimeSubsystem->ResumeTimeSystem();
-	}
-
+	
 	if (bWasSuccessful && Response.IsValid() && Response->GetResponseCode() == 200)
 	{
 		FString ResponseStr = Response->GetContentAsString();
 		UE_LOG(LogTemp, Log, TEXT("Received Command: %s"), *ResponseStr);
 
-		// 3. 解析指令
+		// 解析指令
 		FAgentCommand NewCommand;
 		// 假设服务器返回的 JSON 符合 FAgentCommand 的结构
 		if (FJsonObjectConverter::JsonObjectStringToUStruct(ResponseStr, &NewCommand, 0, 0))
@@ -188,6 +164,11 @@ void ULLMCommunicationSubsystem::OnResponseReceived(FHttpRequestPtr Request, FHt
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to get command from server."));
 	}
+}
+
+void ULLMCommunicationSubsystem::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
+                                                    bool bWasSuccessful)
+{
 }
 
 EAgentCommandType ULLMCommunicationSubsystem::StringToCommandType(const FString& CmdStr)

@@ -42,7 +42,6 @@ void ARimSpaceCharacterBase::BeginPlay()
 			&ARimSpaceCharacterBase::OnMoveCompleted
 		);
 	}
-	
 	// 注册到 CharacterManagerSubsystem
 	GetWorld()->GetSubsystem<UCharacterManagerSubsystem>()->RegisterCharacterWithName(FName(*GetActorName()), this);
 }
@@ -133,10 +132,22 @@ bool ARimSpaceCharacterBase::TakeItem(int32 ItemID, int32 Count)
 	ToTake.ItemID = ItemID;
 	ToTake.Count = Count;
 
+	if(CarriedItems->CheckItemIsAccepted(ToTake) && TargetInventory->GetItemCount(ItemID) >= Count)
+	{
+		TargetInventory->RemoveItem(ToTake);
+		CarriedItems->AddItem(ToTake);
+		return true;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 物品不可接受或目标地点物品不足!"));
+		return false;
+	}
+
 	// === 修改开始：防止物品丢失 ===
     
 	// 1. 先尝试从目标移除
-	if (TargetInventory->RemoveItem(ToTake))
+	/*if (TargetInventory->RemoveItem(ToTake))
 	{
 		// 2. 尝试添加到自己背包
 		if (CarriedItems->AddItem(ToTake))
@@ -156,7 +167,7 @@ bool ARimSpaceCharacterBase::TakeItem(int32 ItemID, int32 Count)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[RimSpace] TakeItem: 目标地点物品不足!"));
 		return false;
-	}
+	}*/
 }
 
 bool ARimSpaceCharacterBase::PutItem(int32 ItemId, int32 Count)
@@ -330,6 +341,8 @@ void ARimSpaceCharacterBase::UpdateEachMinute_Implementation(int32 NewMinute)
 	ITimeAffectable::UpdateEachMinute_Implementation(NewMinute);
 	switch (CurrentActionState)
 	{
+	case ECharacterActionState::Thinking: // 和Idle采用相同的开销
+		ThinkingMinutes++;
 	case ECharacterActionState::Idle:
 		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy - 0.1f, 0.f, 100.f);
 		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.1f, 0.f, 100.f);
@@ -518,9 +531,10 @@ void ARimSpaceCharacterBase::FinishCommandAndRequestNext()
 {
 	// 防止在游戏开始初始化等情况下误触发
 	if (!GetWorld()) return;
+	SetActionState(ECharacterActionState::Thinking);
+
 
 	UE_LOG(LogTemp, Log, TEXT("Character %s finished task. Requesting next..."), *CharacterName.ToString());
-
 	if (ULLMCommunicationSubsystem* LLMSubsystem = GetGameInstance()->GetSubsystem<ULLMCommunicationSubsystem>())
 	{
 		LLMSubsystem->RequestNextAgentCommand(FName(*CharacterName.ToString()));

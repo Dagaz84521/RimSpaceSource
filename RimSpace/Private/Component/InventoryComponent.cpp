@@ -131,7 +131,17 @@ bool UInventoryComponent::RemoveItem(const FItemStack& Item)
 
 bool UInventoryComponent::CheckItemIsAccepted(const FItemStack& Item)
 {
-	return true;
+	bool Accepted = false;
+	URimSpaceGameInstance* GI = GetWorld()->GetGameInstance<URimSpaceGameInstance>();
+	if (!GI)
+	{
+		const UItemData* ItemData = GI->GetItemData(Item.ItemID);
+		if (!ItemData)
+			return false;
+		// 查看物品是否超过容量
+		Accepted = (UsedSpace + Item.Count * ItemData->SpaceCost <= TotalSpace);
+	}
+	return Accepted;
 }
 
 

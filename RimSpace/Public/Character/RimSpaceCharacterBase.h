@@ -53,7 +53,8 @@ enum class ECharacterActionState : uint8
 	Working     UMETA(DisplayName = "Working"), // 正在向设施输送劳动力
 	Eating 		UMETA(DisplayName = "Eating"),  // 正在恢复饱食度
 	Sleeping    UMETA(DisplayName = "Sleeping"), // 正在恢复自身状态
-	Waiting    UMETA(DisplayName = "Waiting") // 等待下一指令
+	Waiting    UMETA(DisplayName = "Thinking"), // 等待一定时间直到下一指令
+	Thinking    UMETA(DisplayName = "Thinking") // 等待
 };
 
 UCLASS()
@@ -132,5 +133,7 @@ protected:
 	float NutritionPerMinute = 0.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Character")
-	int32 WaitRemainingMinutes = 0;
+	int32 WaitRemainingMinutes = 5;
+	
+	int32 ThinkingMinutes = 0;
 };
