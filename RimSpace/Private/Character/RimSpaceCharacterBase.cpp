@@ -82,11 +82,30 @@ void ARimSpaceCharacterBase::OnMoveCompleted(FAIRequestID RequestID, EPathFollow
 	if (Result != EPathFollowingResult::Success)
 	{
 		UE_LOG(LogTemp, Log, TEXT("Move Failed or Aborted"));
+		SetActionState(ECharacterActionState::Idle);
+		TargetPlace = nullptr;
+		FinishCommandAndRequestNext();
+		return;
+	}
+
+	// 空指针检查：确保 TargetPlace 有效
+	if (!IsValid(TargetPlace))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("OnMoveCompleted: TargetPlace is invalid!"));
+		SetActionState(ECharacterActionState::Idle);
+		FinishCommandAndRequestNext();
 		return;
 	}
 
 	USceneComponent* IP = TargetPlace->GetInteractionPoint();
-	if (!IP) return;
+	if (!IP)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("OnMoveCompleted: InteractionPoint is null!"));
+		SetActionState(ECharacterActionState::Idle);
+		TargetPlace = nullptr;
+		FinishCommandAndRequestNext();
+		return;
+	}
 
 	// ① 精确站位（暂时采用瞬移）
 	const FVector StandLocation = IP->GetComponentLocation();
@@ -103,16 +122,8 @@ void ARimSpaceCharacterBase::OnMoveCompleted(FAIRequestID RequestID, EPathFollow
 	TargetPlace = nullptr;
 	CurrentActionState = ECharacterActionState::Idle;
 
-	if (CurrentPlace && CurrentPlace->GetInteractionType() == EInteractionType::EAT_Stove)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Test] Agent: 已到达灶台，开始执行做饭任务(TaskID=1)..."));
-        
-		FAgentCommand UseCmd;
-		UseCmd.CommandType = EAgentCommandType::Use;
-		UseCmd.ParamID = 2003; // 假设 TaskID 1 是做饭
-        
-		ExecuteAgentCommand(UseCmd);
-	}
+	// 移动完成后，请求下一个指令
+	FinishCommandAndRequestNext();
 }
 
 bool ARimSpaceCharacterBase::TakeItem(int32 ItemID, int32 Count)
@@ -450,6 +461,19 @@ TSharedPtr<FJsonObject> ARimSpaceCharacterBase::GetActorDataAsJson() const
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 
 	JsonObject->SetStringField("CharacterName", CharacterName.ToString());
+
+	// 添加当前位置信息
+	if (CurrentPlace)
+	{
+		JsonObject->SetStringField("CurrentLocation", CurrentPlace->GetActorName());
+	}
+	else
+	{
+		JsonObject->SetStringField("CurrentLocation", "None");
+	}
+
+	// 添加当前行动状态
+	JsonObject->SetStringField("ActionState", UEnum::GetValueAsString(CurrentActionState));
 
 	if (CarriedItems)
 	{

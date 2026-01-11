@@ -156,16 +156,20 @@ void AWorkStation::UpdateEachMinute_Implementation(int32 NewMinute)
 	if (CurrentWorkProgress >= TaskData->TaskWorkload)
 	{
 		// 消耗原料
-		ConsumeIngredients(*TaskData);
-        
-		// 产出产品
-		FItemStack Product;
-		Product.ItemID = TaskData->ProductID;
-		Product.Count = 1; 
-		Inventory->AddItem(Product);
+		if (ConsumeIngredients(*TaskData))
+		{
+			// 产出产品
+			FItemStack Product;
+			Product.ItemID = TaskData->ProductID;
+			Product.Count = 1; 
+			Inventory->AddItem(Product);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Work finished but ingredients missing! Production failed."));
+		}
 
 		// === 关键修改：结算逻辑 ===
-        
 		// 检查这个任务是否在玩家的“订单列表”中
 		if (TaskList.Contains(CurrentTaskID))
 		{

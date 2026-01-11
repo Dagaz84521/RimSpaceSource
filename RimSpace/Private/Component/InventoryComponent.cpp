@@ -61,18 +61,30 @@ FString UInventoryComponent::GetInventoryInfo() const
 bool UInventoryComponent::AddItem(const FItemStack& Item)
 {
 	if (!Item.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AddItem failed: Item is not valid (ItemID=%d, Count=%d)"), Item.ItemID, Item.Count);
 		return false;
+	}
 
 	if (!CheckItemIsAccepted(Item))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AddItem failed: Item not accepted (ItemID=%d)"), Item.ItemID);
 		return false;
+	}
 
 	URimSpaceGameInstance* GI = GetWorld()->GetGameInstance<URimSpaceGameInstance>();
 	if (!GI)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddItem failed: GameInstance is null!"));
 		return false;
+	}
 
 	const UItemData* ItemData = GI->GetItemData(Item.ItemID);
 	if (!ItemData)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddItem failed: ItemData not found for ItemID=%d. Did you configure AllItems in GameInstance?"), Item.ItemID);
 		return false;
+	}
 
 	const int32 NeededSpace = Item.Count * ItemData->SpaceCost;
 	if (UsedSpace + NeededSpace > TotalSpace)
@@ -131,17 +143,22 @@ bool UInventoryComponent::RemoveItem(const FItemStack& Item)
 
 bool UInventoryComponent::CheckItemIsAccepted(const FItemStack& Item)
 {
-	bool Accepted = false;
 	URimSpaceGameInstance* GI = GetWorld()->GetGameInstance<URimSpaceGameInstance>();
 	if (!GI)
 	{
-		const UItemData* ItemData = GI->GetItemData(Item.ItemID);
-		if (!ItemData)
-			return false;
-		// 查看物品是否超过容量
-		Accepted = (UsedSpace + Item.Count * ItemData->SpaceCost <= TotalSpace);
+		UE_LOG(LogTemp, Error, TEXT("CheckItemIsAccepted: GameInstance is null"));
+		return false;
 	}
-	return Accepted;
+	
+	const UItemData* ItemData = GI->GetItemData(Item.ItemID);
+	if (!ItemData)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CheckItemIsAccepted: ItemData not found for ItemID=%d"), Item.ItemID);
+		return false;
+	}
+	
+	// 查看物品是否超过容量
+	return (UsedSpace + Item.Count * ItemData->SpaceCost <= TotalSpace);
 }
 
 

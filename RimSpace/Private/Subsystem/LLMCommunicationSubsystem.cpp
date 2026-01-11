@@ -87,6 +87,14 @@ void ULLMCommunicationSubsystem::RequestNextAgentCommand(FName CharacterName)
         RootJson->SetObjectField("Characters", CharacterManager->GetCharactersDataAsJson());
     }
 
+    // B.4 物品和任务配方信息（让 LLM 知道有哪些物品和可用的配方）
+    URimSpaceGameInstance* GI = Cast<URimSpaceGameInstance>(GetGameInstance());
+    if (GI)
+    {
+        RootJson->SetObjectField("ItemDatabase", GI->GetAllItemsDataAsJson());
+        RootJson->SetObjectField("TaskRecipes", GI->GetAllTasksDataAsJson());
+    }
+
     // 3. 序列化并发送
     FString RequestBody;
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);

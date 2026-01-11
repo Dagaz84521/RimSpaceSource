@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "ItemStack.h"
+#include "Actor/EActorType.h"
 #include "TaskInfo.generated.h"
 
 USTRUCT(BlueprintType)
@@ -21,6 +22,8 @@ struct FTask
 	int32 TaskWorkload; // 任务工作量，单位：分钟
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Task")
 	TArray<FItemStack> Ingredients; // 原料列表
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Task")
+	EInteractionType RequiredFacility; // 需要的设施类型
 };
 
 /**

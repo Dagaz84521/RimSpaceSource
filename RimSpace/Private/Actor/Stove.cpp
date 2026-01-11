@@ -35,8 +35,20 @@ AStove::AStove()
 
 void AStove::SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID)
 {
+	if(NewWorker == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stove: Worker set to null."));
+		CurrentWorker = nullptr;
+		CurrentTaskID = 0;
+		CurrentWorkProgress = 0;
+		return;
+	}
 	CurrentWorker = NewWorker;
 	CurrentTaskID = TaskID; // 记录 Agent 想要做的具体任务
+	if (CurrentWorker && CurrentWorker != NewWorker) {
+		UE_LOG(LogTemp, Warning, TEXT("Stove is occupied by %s!"), *CurrentWorker->GetName());
+		return; 
+	}
     
 	// 如果换人了或者换任务了，重置进度
 	// (这里可以加细致判断，比如同一个人做同一个任务就不重置)
@@ -94,13 +106,14 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 	if (CurrentWorkProgress >= TaskData->TaskWorkload)
 	{
 		// 消耗原料
-		ConsumeIngredients(*TaskData);
-        
-		// 产出产品
-		FItemStack Product;
-		Product.ItemID = TaskData->ProductID;
-		Product.Count = 1; 
-		Inventory->AddItem(Product);
+		if (ConsumeIngredients(*TaskData))
+		{
+			// 产出产品
+			FItemStack Product;
+			Product.ItemID = TaskData->ProductID;
+			Product.Count = 1; 
+			Inventory->AddItem(Product);
+		}
 
 		// === 关键修改：结算逻辑 ===
         

@@ -40,12 +40,6 @@ void URimSpaceTimeSubsystem::Tick(float DeltaTime)
 				Minute = 0;
 				Hour++;
 				OnHourPassed.Broadcast(Hour);
-				// 测试用代码，向LLM发送当前游戏世界状态
-				ULLMCommunicationSubsystem* LLMSubsystem = GetGameInstance()->GetSubsystem<ULLMCommunicationSubsystem>();
-				if (LLMSubsystem)
-				{
-					LLMSubsystem->SendGameStateToLLM();
-				}
 				if (Hour >= 24)
 				{
 					Hour = 0;
