@@ -8,6 +8,7 @@
 #include "Component/InventoryComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "NavigationSystem.h"
+#include "Actor/CultivateChamber.h"
 #include "Actor/Stove.h"
 #include "Actor/WorkStation.h"
 #include "Data/AgentCommand.h"
@@ -246,6 +247,10 @@ bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
     case EInteractionType::EAT_CultivateChamber:
        if (!CharacterSkills.bCanFarm) return false;
        CurrentActionState = ECharacterActionState::Working;
+    	if (ACultivateChamber* Chamber = Cast<ACultivateChamber>(CurrentPlace))
+    	{
+    		Chamber->SetWorker(this);
+    	}
        break;
 
     case EInteractionType::EAT_WorkStation:
