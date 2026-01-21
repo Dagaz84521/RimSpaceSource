@@ -1,0 +1,39 @@
+[
+    {
+        "ItemID": 1001,
+        "ItemName": "Cotton",
+        "DisplayName": "棉花",
+        "SpaceCost": 1,
+        "IsFood": false
+    },
+    {
+        "ItemID": 1002,
+        "ItemName": "Corn",
+        "DisplayName": "玉米",
+        "SpaceCost": 2,
+        "IsFood": false
+    },
+    {
+        "ItemID": 2001,
+        "ItemName": "Thread",
+        "DisplayName": "棉线",
+        "SpaceCost": 1,
+        "IsFood": false  
+    },
+    {
+        "ItemID": 2002,
+        "ItemName": "Cloth",
+        "DisplayName": "布料",
+        "SpaceCost": 5,
+        "IsFood": false
+    },
+    {
+        "ItemID": 2003,
+        "ItemName": "Meal",
+        "DisplayName": "套餐",
+        "SpaceCost": 3,
+        "IsFood": true,
+        "NutritionValue": 80.0,
+        "EatDuration": 20
+    }
+]

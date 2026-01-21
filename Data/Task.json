@@ -1,0 +1,70 @@
+[
+    {
+        "TaskID": 2001,
+        "TaskName": "生产棉线",
+        "ProductID": 2001,
+        "TaskWorkLoad": 100,
+        "Ingredients":[
+            {
+                "ItemID": 1001,
+                "Count": 5
+            }
+        ],
+        "RequiredFacility": "工作台",
+        "RequiredSkill":{
+            "CanCraft": true
+        }
+    },
+    {
+        "TaskID": 2002,
+        "TaskName": "生产布料",
+        "ProductID": 2002,
+        "TaskWorkLoad": 200,
+        "Ingredients":[
+            {
+                "ItemID": 1001,
+                "Count": 5
+            }
+        ],
+        "RequiredFacility": "工作台",
+        "RequiredSkill":{
+            "CanCraft": true
+        }
+    },
+    {
+        "TaskID": 200,
+        "TaskName": "制作套餐",
+        "ProductID": 2003,
+        "TaskWorkLoad": 150,
+        "Ingredients":[
+            {
+                "ItemID": 1002,
+                "Count": 5
+            }
+        ],
+        "RequiredFacility": "厨房",
+        "RequiredSkill":{
+            "CanCook": true
+        }
+    },
+    {
+        "TaskID": 3001,
+        "TaskName": "生产衣物",
+        "ProductID": 3001,
+        "TaskWorkLoad": 250,
+        "Ingredients":[
+            {
+                "ItemID": 2002,
+                "Count": 2
+            },
+            {
+                "ItemID": 2001,
+                "Count": 3
+            }
+        ],
+        "RequiredFacility": "工作台",
+        "RequiredSkill":{
+            "CanCraft": true
+        }
+    }
+]
