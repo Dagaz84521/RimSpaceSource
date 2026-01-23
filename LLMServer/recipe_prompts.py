@@ -1,11 +1,4 @@
-import json
-def get_Item_From_ID(item_id):
-    """
-    从Json文件中获取物品信息的函数
-    """
-    with open('items.json', 'r', encoding='utf-8') as f:
-        items_data = json.load(f)
-    return items_data.get(str(item_id), {"Name": "Unknown Item"})
+
 
 def get_recipe_system_prompt(task_recipes_json):
     """
