@@ -10,7 +10,7 @@
                 "Count": 5
             }
         ],
-        "RequiredFacility": "工作台",
+        "RequiredFacility": "WorkStation",
         "RequiredSkill":{
             "CanCraft": true
         }
@@ -26,7 +26,7 @@
                 "Count": 5
             }
         ],
-        "RequiredFacility": "工作台",
+        "RequiredFacility": "WorkStation",
         "RequiredSkill":{
             "CanCraft": true
         }
@@ -42,7 +42,7 @@
                 "Count": 5
             }
         ],
-        "RequiredFacility": "厨房",
+        "RequiredFacility": "Stove",
         "RequiredSkill":{
             "CanCook": true
         }
@@ -62,7 +62,7 @@
                 "Count": 3
             }
         ],
-        "RequiredFacility": "工作台",
+        "RequiredFacility": "WorkStation",
         "RequiredSkill":{
             "CanCraft": true
         }
