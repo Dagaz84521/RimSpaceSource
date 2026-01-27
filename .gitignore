@@ -1,0 +1,97 @@
+# =================================
+# Python
+# =================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# =================================
+# IDE / Editor
+# =================================
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (PyCharm, Rider, etc.)
+.idea/
+*.iml
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# =================================
+# Unreal Engine (if building from source)
+# =================================
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+
+# =================================
+# OS Generated
+# =================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# =================================
+# Logs & Test Output
+# =================================
+*.log
+test_*.log
+logs/
+
+# =================================
+# Misc
+# =================================
+# API keys / secrets
+.env
+.env.local
+*.key
+secrets.json
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.bak

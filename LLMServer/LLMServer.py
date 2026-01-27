@@ -49,6 +49,120 @@ class StaticGameData:
 GAME_STATIC_DATA = StaticGameData()
 
 # ==========================================
+# 1.5 角色 Profile 定义
+# ==========================================
+# 从外部文件加载角色职业配置
+CHARACTER_PROFILES = {}
+
+def load_character_profiles():
+    """从外部 JSON 文件加载角色档案配置"""
+    global CHARACTER_PROFILES
+    try:
+        base_dir = os.path.dirname(__file__)
+        profile_path = os.path.normpath(os.path.join(base_dir, '..', 'Data', 'CharacterProfiles.json'))
+        
+        with open(profile_path, 'r', encoding='utf-8') as f:
+            profiles_list = json.load(f)
+            for profile in profiles_list:
+                profile_id = profile.get("ProfileID", "")
+                if profile_id:
+                    CHARACTER_PROFILES[profile_id] = profile
+        print(f"已加载 {len(CHARACTER_PROFILES)} 个角色档案")
+    except Exception as e:
+        print(f"加载角色档案失败: {e}")
+        # 使用默认配置作为兜底
+        CHARACTER_PROFILES["Worker"] = {
+            "ProfileID": "Worker",
+            "Profession": "General Worker",
+            "Description": "A versatile colonist who can perform various tasks.",
+            "PrimarySkills": ["CanCook", "CanCraft"],
+            "Personality": "Adaptable and hardworking.",
+            "PreferredFacilities": ["Storage"],
+            "WorkPriority": ["Help with any task"]
+        }
+
+# 启动时加载
+load_character_profiles()
+
+class CharacterProfile:
+    """角色档案：包含职业、技能、可制作物品等信息"""
+    
+    def __init__(self, character_data):
+        self.name = character_data.get("Name", "Unknown")
+        self.skills = character_data.get("Skills", {})
+        self.state = character_data.get("State", "Idle")
+        self.location = character_data.get("Location", "Unknown")
+        self.stats = character_data.get("CharacterStats", {})
+        self.inventory = character_data.get("Inventory", [])
+        
+        # 根据名字或技能匹配职业 profile
+        self.profile = self._match_profile()
+        
+    def _match_profile(self):
+        """根据角色名或技能匹配职业档案"""
+        # 优先按名字匹配
+        if self.name in CHARACTER_PROFILES:
+            return CHARACTER_PROFILES[self.name]
+        
+        # 按技能匹配
+        active_skills = [k for k, v in self.skills.items() if v]
+        if "CanCook" in active_skills and "CanCraft" not in active_skills:
+            return CHARACTER_PROFILES.get("Chef", {})
+        elif "CanCraft" in active_skills and "CanCook" not in active_skills:
+            return CHARACTER_PROFILES.get("Crafter", {})
+        else:
+            return CHARACTER_PROFILES.get("Worker", {})
+    
+    def get_available_recipes(self):
+        """根据角色技能获取可以制作的配方列表"""
+        available = []
+        active_skills = [k for k, v in self.skills.items() if v]
+        
+        for task in GAME_STATIC_DATA.recipes_list:
+            required_skills = task.get("RequiredSkill", {})
+            # 检查角色是否有所需技能
+            can_do = True
+            for skill_name, required in required_skills.items():
+                if required and skill_name not in active_skills:
+                    can_do = False
+                    break
+            if can_do:
+                product_name = GAME_STATIC_DATA.get_item_name(task.get("ProductID"))
+                available.append({
+                    "TaskID": task["TaskID"],
+                    "TaskName": task["TaskName"],
+                    "ProductName": product_name,
+                    "Facility": task["RequiredFacility"]
+                })
+        return available
+    
+    def get_profile_str(self):
+        """生成角色档案的字符串描述"""
+        profile = self.profile
+        if not profile:
+            return f"No profile found for {self.name}"
+        
+        # 获取可制作的配方
+        recipes = self.get_available_recipes()
+        recipes_str = ", ".join([f"{r['ProductName']}(TaskID:{r['TaskID']})" for r in recipes]) or "None"
+        
+        # 获取活跃技能
+        active_skills = [k for k, v in self.skills.items() if v]
+        
+        return (
+            f"=== CHARACTER PROFILE ===\n"
+            f"Name: {self.name}\n"
+            f"Profession: {profile.get('Profession', 'Unknown')}\n"
+            f"Description: {profile.get('Description', 'N/A')}\n"
+            f"Personality: {profile.get('Personality', 'N/A')}\n"
+            f"Skills: {', '.join(active_skills) or 'None'}\n"
+            f"Preferred Facilities: {', '.join(profile.get('PreferredFacilities', []))}\n"
+            f"Work Priority: {', '.join(profile.get('WorkPriority', []))}\n"
+            f"Can Craft: {recipes_str}\n"
+            f"=========================\n"
+        )
+
+# ==========================================
 # 2. 世界数据管理器
 # ==========================================
 class WorldDataManager:
@@ -59,6 +173,8 @@ class WorldDataManager:
         self.environment = raw_data.get("Environment", [])
         self.characters = raw_data.get("Characters", [])
         self.my_status = next((c for c in self.characters if c["Name"] == self.agent_name), {})
+        # 创建角色档案
+        self.my_profile = CharacterProfile(self.my_status) if self.my_status else None
     
     def get_self_status_str(self):
         if not self.my_status:
@@ -150,11 +266,11 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "search_recipes",
-            "description": "Search for crafting recipes. Call this when you want to make something but don't know the ingredients or facility.",
+            "description": "ALWAYS call this first when starting a crafting task! Search for crafting recipes to understand what ingredients are needed. If an ingredient is not a raw material, search for that ingredient's recipe too. Raw materials are: Cotton, Corn. Everything else must be crafted.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "keyword": {"type": "string", "description": "Name of the item to craft (e.g. 'Cotton', 'Meal'). Empty to list all."}
+                    "keyword": {"type": "string", "description": "Name of the item to craft (e.g. 'Clothes', 'Thread', 'Cloth', 'Meal'). Empty to list all recipes."}
                 },
                 "required": []
             }
@@ -198,7 +314,7 @@ TOOLS_SCHEMA = [
                 "properties": {
                     "CommandType": {"type": "string", "enum": ["Move", "Take", "Put", "Use", "Wait"]},
                     "TargetName": {"type": "string", "description": "The target actor name (e.g. 'Stove_1', 'Storage_A')."},
-                    "ParamID": {"type": "integer", "description": "ItemID for Take/Put, or TaskID/ActionID for Use."},
+                    "ParamID": {"type": "integer", "description": "For Take: ItemID of item to take FROM the container. For Put: ItemID of item currently IN YOUR INVENTORY to put into the container. For Use: TaskID of the recipe to execute. Item IDs: Cotton=1001, Corn=1002, Thread=2001, Cloth=2002, Meal=2003, Coat=3001."},
                     "Count": {"type": "integer", "description": "Amount of items to handle."},
                     "Belief": {
                         "type": "object",
@@ -245,7 +361,7 @@ def get_instruction():
     
     # 构建初始对话
     # 当前任务目标（后续可从外部传入或动态决策）
-    current_task = "Craft a Meal to keep food supplies ready."
+    current_task = "Craft a Coat using the WorkStation."
     
     # 读取传入的信念状态
     previous_belief = raw_data.get("Belief", None)
@@ -259,24 +375,79 @@ def get_instruction():
             f"==============================================\n"
         )
     
+    # 读取上一个命令的执行反馈
+    last_action_feedback = raw_data.get("LastActionFeedback", None)
+    feedback_str = ""
+    if last_action_feedback:
+        feedback_str = (
+            f"\n=== LAST ACTION FEEDBACK ===\n"
+            f"{last_action_feedback}\n"
+            f"============================\n"
+        )
+    
+    # 获取角色档案
+    profile_str = ""
+    if world_mgr.my_profile:
+        profile_str = world_mgr.my_profile.get_profile_str()
+    
     messages = [
         {"role": "system", "content": (
-            f"You are {world_mgr.agent_name}. You are in a survival/crafting game.\n"
+            f"You are {world_mgr.agent_name}. You are in a survival/crafting game.\n\n"
+            f"{profile_str}\n"
             f"Current Status:\n{world_mgr.get_self_status_str()}\n\n"
             f"=== CURRENT TASK ===\n{current_task}\n"
-            f"{belief_str}\n"
+            f"{belief_str}"
+            f"{feedback_str}\n"
+            "=== CRITICAL: CHECK CURRENT WORLD STATE ===\n"
+            "ALWAYS check the CURRENT world state before deciding your next action!\n"
+            "- Check your INVENTORY: what items do you currently have?\n"
+            "- Check the FACILITY's inventory: what items are already there?\n"
+            "- If your inventory is EMPTY but the facility has materials, you should Use (not Put)!\n"
+            "- If a step in NextSteps is already done (based on world state), SKIP to the next step!\n\n"
+            "=== CRITICAL: PLANNING BEFORE ACTION ===\n"
+            "BEFORE taking any action, you MUST:\n"
+            "1. Use 'search_recipes' to find the recipe for your target item (e.g., 'Coat')\n"
+            "2. Check the ingredients - if an ingredient is NOT a raw material (like Cotton, Corn), \n"
+            "   you need to craft it first! Use 'search_recipes' again to find how to make that ingredient.\n"
+            "3. Use 'find_items' to check what materials are available in Storage.\n"
+            "4. Plan your production chain from raw materials to final product.\n\n"
             "Decision Policy:\n"
             "- If Hunger < 30: find food (e.g., 'Meal') and eat it.\n"
-            "- Else: work on your CURRENT TASK following REQUIRED action order.\n\n"
-            "REQUIRED Order for crafting actions (strictly one step at a time):\n"
-            "1) Take: collect required ingredients from Storage.\n"
+            "- Else: work on your CURRENT TASK following the action order below.\n\n"
+            "=== CRITICAL: CRAFTING RULES ===\n"
+            "There are TWO types of tasks:\n\n"
+            "**TYPE A: Tasks WITH ingredients (crafting/cooking)**\n"
+            "The facility can ONLY use materials from its OWN inventory, NOT from your backpack!\n"
+            "You MUST Put ingredients INTO the facility BEFORE using a recipe.\n"
+            "Required order: Take -> Move -> Put -> Use\n"
+            "1) Take: collect required ingredients from Storage. ParamID = ItemID of the item (Cotton=1001, Corn=1002, Thread=2001, Cloth=2002, Meal=2003, Coat=3001)\n"
             "2) Move: go to the required facility for the recipe.\n"
-            "3) Put: place required ingredients into that facility.\n"
-            "4) Use: execute the recipe with the correct TaskID at the facility.\n\n"
-            "IMPORTANT: When calling finish_thinking, you MUST provide a Belief object that records:\n"
-            "- Goal: your current objective\n"
-            "- Completed: what you just did (this action)\n"
-            "- NextSteps: what remains to be done after this action\n\n"
+            "3) Put: place ingredients from YOUR INVENTORY into the facility. ParamID = ItemID of item IN YOUR INVENTORY (not the product you want to make!)\n"
+            "4) Use: execute the recipe with TaskID. ParamID = TaskID. The facility consumes materials FROM ITS OWN INVENTORY and the product goes to your inventory.\n\n"
+            "**IMPORTANT**: After Put, you MUST call Use to actually craft! Put only moves items, Use triggers the recipe!\n\n"
+            "**TYPE B: Tasks WITHOUT ingredients (farming/planting)**\n"
+            "These tasks produce raw materials and don't need any input materials.\n"
+            "Required order: Move -> Use (that's it!)\n"
+            "1) Move: go to the CultivateChamber.\n"
+            "2) Use: execute the planting task with TaskID to grow crops.\n"
+            "   The product goes to your inventory after completion.\n\n"
+            "Example for TYPE A - making Thread from Cotton:\n"
+            "  - Take Cotton from Storage (ParamID=1001, Count=5)\n"
+            "  - Move to WorkStation\n"
+            "  - Put Cotton into WorkStation (ParamID=1001, Count=5) <- ParamID is Cotton's ID, NOT Thread's ID!\n"
+            "  - Use TaskID 2001 at WorkStation (ParamID=2001) <- This actually crafts Thread!\n\n"
+            "Example for TYPE A - making Coat (needs Cloth x2, Thread x3):\n"
+            "  - First craft Thread x3 and Cloth x2 using the above pattern\n"
+            "  - Put Cloth x2 into WorkStation (ParamID=2002)\n"
+            "  - Put Thread x3 into WorkStation (ParamID=2001)\n"
+            "  - Use TaskID 3001 at WorkStation (ParamID=3001)\n\n"
+            "Example for TYPE B - planting Cotton (no ingredients needed):\n"
+            "  - Move to CultivateChamber\n"
+            "  - Use TaskID 1001 at CultivateChamber\n\n"
+            "When calling finish_thinking, you MUST provide a Belief object that records:\n"
+            "- Goal: your FULL production plan\n"
+            "- Completed: what you just did AND what products you have made. UPDATE THIS EACH STEP!\n"
+            "- NextSteps: what remains to be done (be specific about quantities). UPDATE THIS EACH STEP!\n\n"
             "Use tools to gather info, then call 'finish_thinking' with your action AND belief."
         )}
     ]

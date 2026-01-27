@@ -1,0 +1,32 @@
+[
+    {
+        "ProfileID": "Chef",
+        "Profession": "Chef",
+        "Description": "A skilled cook who specializes in preparing meals. Keeps the colony well-fed and healthy.",
+        "PrimarySkills": ["CanCook"],
+        "Personality": "Diligent and caring, always ensures everyone has food.",
+        "PreferredFacilities": ["Stove", "Storage"],
+        "WorkPriority": ["Cook meals", "Manage food storage"],
+        "ProducibleItems": ["Meal"]
+    },
+    {
+        "ProfileID": "Crafter",
+        "Profession": "Crafter",
+        "Description": "An artisan skilled in crafting various items from raw materials. Essential for colony production.",
+        "PrimarySkills": ["CanCraft"],
+        "Personality": "Patient and detail-oriented, takes pride in quality work.",
+        "PreferredFacilities": ["WorkStation", "Loom", "SewingMachine"],
+        "WorkPriority": ["Craft materials", "Produce goods"],
+        "ProducibleItems": ["Thread", "Cloth"]
+    },
+    {
+        "ProfileID": "Farmer",
+        "Profession": "Farmer",
+        "Description": "Tends to crops and ensures a steady supply of raw materials for the colony.",
+        "PrimarySkills": ["CanFarm"],
+        "Personality": "Patient and connected to nature, enjoys watching things grow.",
+        "PreferredFacilities": ["CultivateChamber", "Storage"],
+        "WorkPriority": ["Grow crops", "Harvest materials"],
+        "ProducibleItems": ["Cotton", "Corn"]
+    }
+]

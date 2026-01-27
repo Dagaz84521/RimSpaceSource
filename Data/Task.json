@@ -1,5 +1,27 @@
 [
     {
+        "TaskID": 1001,
+        "TaskName": "种植棉花",
+        "ProductID": 1001,
+        "TaskWorkLoad": 120,
+        "Ingredients": [],
+        "RequiredFacility": "CultivateChamber",
+        "RequiredSkill": {
+            "CanFarm": true
+        }
+    },
+    {
+        "TaskID": 1002,
+        "TaskName": "种植玉米",
+        "ProductID": 1002,
+        "TaskWorkLoad": 100,
+        "Ingredients": [],
+        "RequiredFacility": "CultivateChamber",
+        "RequiredSkill": {
+            "CanFarm": true
+        }
+    },
+    {
         "TaskID": 2001,
         "TaskName": "生产棉线",
         "ProductID": 2001,
@@ -49,7 +71,7 @@
     },
     {
         "TaskID": 3001,
-        "TaskName": "生产衣物",
+        "TaskName": "生产衣服",
         "ProductID": 3001,
         "TaskWorkLoad": 250,
         "Ingredients":[

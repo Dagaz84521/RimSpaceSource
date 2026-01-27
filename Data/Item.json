@@ -35,5 +35,12 @@
         "IsFood": true,
         "NutritionValue": 80.0,
         "EatDuration": 20
+    },
+    {
+        "ItemID": 3001,
+        "ItemName": "Coat",
+        "DisplayName": "衣服",
+        "SpaceCost": 10,
+        "IsFood": false
     }
 ]
