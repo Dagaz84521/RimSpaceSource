@@ -1,6 +1,7 @@
 # agent_manager.py
 from config import SYSTEM_PROMPT_TEMPLATE, THRESHOLDS
 from llm_client import LLMClient
+import os
 
 class RimSpaceAgent:
     def __init__(self, name, profession):
@@ -52,6 +53,8 @@ class RimSpaceAgent:
         tasks = [t.get("TaskName", "Unknown") for t in environment_data.get("Blackboard", [])]
         env_text = f"\n[Task Blackboard]: {', '.join(tasks) if tasks else 'Empty'}"
         
+        # 
+
         return status_text + env_text
 
     def make_decision(self, char_data, environment_data):
@@ -60,9 +63,11 @@ class RimSpaceAgent:
         self.update_state(char_data, environment_data)
         
         # 2. 构建 Prompt
+        specific_profile = self.load_profile(self.profession)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             profession=self.profession,
-            name=self.name
+            name=self.name,
+            specific_profile=specific_profile
         )
         user_context = self.generate_observation_text(environment_data)
         
@@ -71,3 +76,22 @@ class RimSpaceAgent:
         decision_json = self.llm.parse_json_response(response_str)
         
         return decision_json
+    
+    def load_profile(self, profession):
+        """从文档库加载特定职业的背景故事"""
+        # 构建文件路径: LLMServerNew/../文档/profile_{profession}.txt
+        current_dir = os.path.dirname(__file__)  # LLMServerNew 目录
+        parent_dir = os.path.dirname(current_dir)  # Source 目录
+        profile_dir = os.path.join(parent_dir, "文档")
+        profile_file = os.path.join(profile_dir, f"profile_{profession.lower()}.txt")
+        
+        # 读取文件内容
+        try:
+            with open(profile_file, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"Warning: Profile file not found: {profile_file}")
+            return f"A skilled {profession} in the RimSpace colony."
+        except Exception as e:
+            print(f"Error loading profile: {e}")
+            return f"A skilled {profession} in the RimSpace colony."

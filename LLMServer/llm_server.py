@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 from typing import Dict, Optional
+from agent_manager import RimSpaceAgent
 import os
 
 app = Flask(__name__)
@@ -46,8 +47,8 @@ def load_task_data() -> list:
         print(f"[错误] 加载任务数据失败: {e}")
     return []
 
-# ========== LLM ==============
-
+# ========== Agents ==============
+agents = {}
 
 
 
@@ -135,16 +136,25 @@ def get_instruction():
         # 示例：检查角色状态
         # character_info = characters.get("Characters", [])
         # environment_data = environment
-        
-        # 目前返回简单的Wait指令
-        response = create_wait_command(
-            character_name,
-            reasoning="精简版服务器 - 等待实现决策逻辑",
-            wait_time=60  # 等待60分钟
+
+        if character_name not in agents:
+            agents[character_name] = RimSpaceAgent(character_name, character_name.lower())
+        agent = agents[character_name]
+        decision = agent.make_decision(
+            characters.get(character_name, {}),
+            environment
         )
+        print(f"[决策] {decision}")
+        return jsonify(decision), 200
+        # 目前返回简单的Wait指令
+        # response = create_wait_command(
+        #     character_name,
+        #     reasoning="精简版服务器 - 等待实现决策逻辑",
+        #     wait_time=60  # 等待60分钟
+        # )
         
-        print(f"[返回指令] {response['CommandType']}")
-        return jsonify(response), 200
+        # print(f"[返回指令] {response}")
+        # return jsonify(response), 200
         
     except Exception as e:
         import traceback

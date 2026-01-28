@@ -1,8 +1,8 @@
 import os
 
 # LLM 配置
-LLM_API_KEY = os.getenv("LLM_API_KEY", "your-api-key-here")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "99b1922f-a206-4aab-9680-048625819b76")
+LLM_MODEL = os.getenv("LLM_MODEL", "ep-20251230111027-fprsp")
 LLM_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
 # 欲望阈值配置 (0 - 100)
@@ -15,8 +15,9 @@ THRESHOLDS = {
 # 系统提示词 (System Prompt)
 # 核心：定义角色如何思考，以及如何权衡欲望
 SYSTEM_PROMPT_TEMPLATE = """
-你是RimSpace殖民地的一名{profession}，名叫{name}。RimSpace是一个充满挑战的世界，你需要在生存和履行职责之间找到平衡。
+RimSpace是一个充满挑战的世界，你需要在生存和履行职责之间找到平衡。
 [角色背景]
+{specific_profile}
 
 你需要根据当前的生理和心理状态（欲望）做出决策。
 
