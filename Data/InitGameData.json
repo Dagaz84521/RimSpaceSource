@@ -1,0 +1,61 @@
+{
+  "Storages": [
+    {
+      "ActorName": "Storage",
+      "Items": [
+        { "ItemID": 1001, "Count": 100 },
+        { "ItemID": 1002, "Count": 100 }
+      ]
+    }
+  ],
+  "Characters": [
+    {
+      "CharacterName": "Farmer",
+      "Profession": "Farmer",
+      "SpawnLocation": { "X": 2100.0, "Y": 2000.0, "Z": 90.0 },
+      "Stats": {
+        "Hunger": 100.0,
+        "MaxHunger": 100.0,
+        "Energy": 100.0,
+        "MaxEnergy": 100.0
+      },
+      "Skills" :{
+        "bCanCook": false,
+        "bCanFarm": true,
+        "bCanCraft": false
+      }
+    },
+    {
+      "CharacterName": "Crafter",
+      "Profession": "Crafter",
+      "SpawnLocation": { "X": 2100.0, "Y": 2000.0, "Z": 90.0 },
+      "Stats": {
+        "Hunger": 100.0,
+        "MaxHunger": 100.0,
+        "Energy": 100.0,
+        "MaxEnergy": 100.0
+      },
+      "Skills" :{
+        "bCanCook": false,
+        "bCanFarm": false,
+        "bCanCraft": true
+      }
+    },
+    {
+      "CharacterName": "Chef",
+      "Profession": "Chef",
+      "SpawnLocation": { "X": 2100.0, "Y": 2000.0, "Z": 90.0 },
+      "Stats": {
+        "Hunger": 100.0,
+        "MaxHunger": 100.0,
+        "Energy": 100.0,
+        "MaxEnergy": 100.0
+      },
+      "Skills" :{
+        "bCanCook": true,
+        "bCanFarm": false,
+        "bCanCraft": false
+      }
+    }
+  ]
+}

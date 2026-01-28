@@ -1,642 +1,452 @@
+"""
+LLM服务器 - 处理游戏世界状态，调用LLM做决策，并通过Planner分解为单步指令
+"""
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import json
+from typing import Dict, Optional
 import os
-from openai import OpenAI
+from datetime import datetime
+
+from TaskBlackboard import TaskBlackboard, TaskPriority
+from Planner import Planner
+
+# 检查是否安装了OpenAI或其他LLM库
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("[警告] 未安装openai库，LLM功能将被禁用")
 
 app = Flask(__name__)
-# === 配置部分 ===
-# 从环境变量或配置文件中读取 OpenAI API 密钥和其他设置
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "99b1922f-a206-4aab-9680-048625819b76")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-MODEL_NAME = os.getenv("MODEL_NAME", "ep-20251230111027-fprsp")
-MOCK_MODE = os.getenv("LLM_MOCK", "0") == "1" or OPENAI_API_KEY == "your-api-key-here"
-openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+CORS(app)  # 允许跨域请求
 
-# ==========================================
-# 1. 静态数据加载器
-# ==========================================
-class StaticGameData:
-    def __init__(self):
-        self.items_map = {} # ItemID -> ItemName
-        self.recipes_list = [] # List of recipe dicts
-        self.load_data()
-    def load_data(self):
-        # 1. 加载物品/配方数据（相对当前文件目录）
-        try:
-            base_dir = os.path.dirname(__file__)
-            item_path = os.path.normpath(os.path.join(base_dir, '..', 'Data', 'Item.json'))
-            task_path = os.path.normpath(os.path.join(base_dir, '..', 'Data', 'Task.json'))
+# 初始化系统
+blackboard = TaskBlackboard()
+planner = Planner(blackboard)
 
-            with open(item_path, 'r', encoding='utf-8') as f:
-                items_data = json.load(f)
-                for item in items_data:
-                    self.items_map[item['ItemID']] = item['ItemName']
-            print(f"已加载 {len(self.items_map)} 个物品数据")
-        except Exception as e:
-            print(f"加载物品数据失败: {e}")
-        # 2. 加载配方数据
-        try:
-            with open(task_path, 'r', encoding='utf-8') as f:
-                self.recipes_list = json.load(f)
-            print(f"已加载 {len(self.recipes_list)} 个配方数据")
-        except Exception as e:
-            print(f"加载配方数据失败: {e}")
+# 游戏状态缓存
+game_state_cache: Dict = {}
 
-    def get_item_name(self, item_id):
-        return self.items_map.get(item_id, "未知物品")
+# LLM客户端（如果可用）
+llm_client = None
+if OPENAI_AVAILABLE:
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if api_key:
+        llm_client = OpenAI(api_key=api_key)
+        print("[LLMServer] OpenAI客户端初始化成功")
+    else:
+        print("[警告] 未设置OPENAI_API_KEY环境变量")
 
-# 游戏物品信息、配方等静态数据实例
-GAME_STATIC_DATA = StaticGameData()
 
-# ==========================================
-# 1.5 角色 Profile 定义
-# ==========================================
-# 从外部文件加载角色职业配置
-CHARACTER_PROFILES = {}
-
-def load_character_profiles():
-    """从外部 JSON 文件加载角色档案配置"""
-    global CHARACTER_PROFILES
+def call_llm_for_decision(
+    character_name: str,
+    game_state: Dict,
+    blackboard_summary: Dict
+) -> Dict:
+    """
+    调用LLM进行高级决策
+    
+    Returns:
+        {
+            "action": "Sleep/Eat/Craft/Plant/Harvest/Transport/CheckBlackboard",
+            "params": {...}
+        }
+    """
+    # 如果LLM不可用，使用规则引擎
+    if not llm_client:
+        return rule_based_decision(character_name, game_state, blackboard_summary)
+    
+    # 构建Prompt
+    prompt = build_decision_prompt(character_name, game_state, blackboard_summary)
+    
     try:
-        base_dir = os.path.dirname(__file__)
-        profile_path = os.path.normpath(os.path.join(base_dir, '..', 'Data', 'CharacterProfiles.json'))
-        
-        with open(profile_path, 'r', encoding='utf-8') as f:
-            profiles_list = json.load(f)
-            for profile in profiles_list:
-                profile_id = profile.get("ProfileID", "")
-                if profile_id:
-                    CHARACTER_PROFILES[profile_id] = profile
-        print(f"已加载 {len(CHARACTER_PROFILES)} 个角色档案")
-    except Exception as e:
-        print(f"加载角色档案失败: {e}")
-        # 使用默认配置作为兜底
-        CHARACTER_PROFILES["Worker"] = {
-            "ProfileID": "Worker",
-            "Profession": "General Worker",
-            "Description": "A versatile colonist who can perform various tasks.",
-            "PrimarySkills": ["CanCook", "CanCraft"],
-            "Personality": "Adaptable and hardworking.",
-            "PreferredFacilities": ["Storage"],
-            "WorkPriority": ["Help with any task"]
-        }
-
-# 启动时加载
-load_character_profiles()
-
-class CharacterProfile:
-    """角色档案：包含职业、技能、可制作物品等信息"""
-    
-    def __init__(self, character_data):
-        self.name = character_data.get("Name", "Unknown")
-        self.skills = character_data.get("Skills", {})
-        self.state = character_data.get("State", "Idle")
-        self.location = character_data.get("Location", "Unknown")
-        self.stats = character_data.get("CharacterStats", {})
-        self.inventory = character_data.get("Inventory", [])
-        
-        # 根据名字或技能匹配职业 profile
-        self.profile = self._match_profile()
-        
-    def _match_profile(self):
-        """根据角色名或技能匹配职业档案"""
-        # 优先按名字匹配
-        if self.name in CHARACTER_PROFILES:
-            return CHARACTER_PROFILES[self.name]
-        
-        # 按技能匹配
-        active_skills = [k for k, v in self.skills.items() if v]
-        if "CanCook" in active_skills and "CanCraft" not in active_skills:
-            return CHARACTER_PROFILES.get("Chef", {})
-        elif "CanCraft" in active_skills and "CanCook" not in active_skills:
-            return CHARACTER_PROFILES.get("Crafter", {})
-        else:
-            return CHARACTER_PROFILES.get("Worker", {})
-    
-    def get_available_recipes(self):
-        """根据角色技能获取可以制作的配方列表"""
-        available = []
-        active_skills = [k for k, v in self.skills.items() if v]
-        
-        for task in GAME_STATIC_DATA.recipes_list:
-            required_skills = task.get("RequiredSkill", {})
-            # 检查角色是否有所需技能
-            can_do = True
-            for skill_name, required in required_skills.items():
-                if required and skill_name not in active_skills:
-                    can_do = False
-                    break
-            if can_do:
-                product_name = GAME_STATIC_DATA.get_item_name(task.get("ProductID"))
-                available.append({
-                    "TaskID": task["TaskID"],
-                    "TaskName": task["TaskName"],
-                    "ProductName": product_name,
-                    "Facility": task["RequiredFacility"]
-                })
-        return available
-    
-    def get_profile_str(self):
-        """生成角色档案的字符串描述"""
-        profile = self.profile
-        if not profile:
-            return f"No profile found for {self.name}"
-        
-        # 获取可制作的配方
-        recipes = self.get_available_recipes()
-        recipes_str = ", ".join([f"{r['ProductName']}(TaskID:{r['TaskID']})" for r in recipes]) or "None"
-        
-        # 获取活跃技能
-        active_skills = [k for k, v in self.skills.items() if v]
-        
-        return (
-            f"=== CHARACTER PROFILE ===\n"
-            f"Name: {self.name}\n"
-            f"Profession: {profile.get('Profession', 'Unknown')}\n"
-            f"Description: {profile.get('Description', 'N/A')}\n"
-            f"Personality: {profile.get('Personality', 'N/A')}\n"
-            f"Skills: {', '.join(active_skills) or 'None'}\n"
-            f"Preferred Facilities: {', '.join(profile.get('PreferredFacilities', []))}\n"
-            f"Work Priority: {', '.join(profile.get('WorkPriority', []))}\n"
-            f"Can Craft: {recipes_str}\n"
-            f"=========================\n"
+        response = llm_client.chat.completions.create(
+            model="gpt-4o-mini",  # 或使用 gpt-3.5-turbo
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是一个游戏AI助手，负责控制NPC角色。根据角色状态、世界信息和任务，做出合理的决策。"
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
+            response_format={"type": "json_object"}
         )
-
-# ==========================================
-# 2. 世界数据管理器
-# ==========================================
-class WorldDataManager:
-    def __init__(self, raw_data):
-        self.raw_data = raw_data
-        self.agent_name = raw_data.get("TargetAgent", "Unknown")
-        self.game_time = raw_data.get("GameTime", "00:00")
-        self.environment = raw_data.get("Environment", [])
-        self.characters = raw_data.get("Characters", [])
-        self.my_status = next((c for c in self.characters if c["Name"] == self.agent_name), {})
-        # 创建角色档案
-        self.my_profile = CharacterProfile(self.my_status) if self.my_status else None
-    
-    def get_self_status_str(self):
-        if not self.my_status:
-            return "未找到自身状态信息"
-        stats = self.my_status.get("CharacterStats", {})
-        location = self.my_status.get("Location", "未知地点")
-        state = self.my_status.get("State", "未知状态")
-        skills = self.my_status.get("Skills", {})
-        hunger = stats.get("Hunger", 0)
-        energy = stats.get("Energy", 0)
-        inventory = self.my_status.get("Inventory", [])
-        inv_str = ", ".join([f"{i['name']}x{i['count']}" for i in inventory]) or "Empty"
-        return (f"Name:{self.agent_name}\n"
-                f"Location:{location}\n"
-                f"State:{state}\n"
-                f"Hunger:{hunger:.1f}/100(Lower Hunger means you need food)\n"
-                f"Energy:{energy:.1f}/100(Lower Energy means you need rest)\n"
-                f"Skills:{', '.join([f'{k}:{v}' for k,v in skills.items()])}\n"
-                f"Inventory:{inv_str}\n")
-    
-    def search_recipes(self, keyword = ""):
-        results = []
-        for task in GAME_STATIC_DATA.recipes_list:
-            task_name = task.get("TaskName", "")
-            product_id = task.get("ProductID")
-            product_name = GAME_STATIC_DATA.get_item_name(product_id)
-            if not keyword or (keyword.lower() in task_name.lower()) or (keyword.lower() in product_name.lower()):
-                # 格式化原料列表
-                ingredients_str_list = []
-                for ing in task.get("Ingredients", []):
-                    ing_name = GAME_STATIC_DATA.get_item_name(ing['ItemID'])
-                    ingredients_str_list.append(f"{ing_name} x{ing['Count']}")
-                ingredients_desc = ", ".join(ingredients_str_list)
-
-                # 格式化技能要求
-                skills = task.get("RequiredSkill", {})
-                required_skills = [k for k, v in skills.items() if v] # 提取值为 true 的键
-                skill_desc = ", ".join(required_skills) if required_skills else "None"
-
-                # 构建返回给 LLM 的详细描述
-                info = (
-                    f"Recipe: {task_name} (TaskID: {task['TaskID']})\n"
-                    f"  - Output: {product_name}\n" # 告诉 LLM 这到底是在造什么
-                    f"  - Facility: {task['RequiredFacility']}\n"
-                    f"  - Ingredients: {ingredients_desc}\n"
-                    f"  - Workload: {task['TaskWorkLoad']} mins\n"
-                    f"  - Required Skills: {skill_desc}"
-                )
-                results.append(info)
-                
-        if not results:
-            results.append("No matching recipes found.")
         
-        return "\n\n".join(results)
+        result = json.loads(response.choices[0].message.content)
+        print(f"[LLM决策] {character_name}: {result.get('action')} - {result.get('reasoning', '')}")
+        return result
+        
+    except Exception as e:
+        print(f"[错误] LLM调用失败: {e}")
+        return rule_based_decision(character_name, game_state, blackboard_summary)
 
-    def find_items(self, item_name):
-        """工具函数：在世界容器中查找物品"""
-        found = []
-        for actor in self.environment:
-            # 这是一个简单的查找，检查 Actor 的 Inventory
-            inv = actor.get("Inventory", {}).get("items", [])
-            for item in inv:
-                if item_name.lower() in item.get("name", "").lower():
-                    found.append(f"Found {item['count']}x {item['name']} at [{actor['ActorName']}]")
-        
-        if not found:
-            return f"No item named '{item_name}' found in known storage."
-        return "\n".join(found[:10])
+
+def build_decision_prompt(
+    character_name: str,
+    game_state: Dict,
+    blackboard_summary: Dict
+) -> str:
+    """构建LLM决策的Prompt"""
     
-    def find_facilities(self, facility_type=""):
-        """工具函数：查找环境中的设施/Actor"""
-        found = []
-        for actor in self.environment:
-            actor_name = actor.get("ActorName", "")
-            actor_type = actor.get("Type", "")
-            if not facility_type or facility_type.lower() in actor_type.lower() or facility_type.lower() in actor_name.lower():
-                inv = actor.get("Inventory", {}).get("items", [])
-                inv_str = ", ".join([f"{it['name']}x{it['count']}" for it in inv]) or "Empty"
-                found.append(f"Facility: {actor_name} (Type: {actor_type}) - Inventory: {inv_str}")
+    # 获取角色信息
+    character_info = game_state.get("Characters", {}).get(character_name, {})
+    hunger = character_info.get("Hunger", 100)
+    energy = character_info.get("Energy", 100)
+    position = character_info.get("Position", "未知")
+    inventory = character_info.get("Inventory", [])
+    
+    # 获取环境信息
+    environment = game_state.get("Environment", {})
+    
+    # 获取黑板任务
+    pending_tasks = [t for t in blackboard_summary.get("tasks", []) if t["status"] == "pending"]
+    
+    prompt = f"""
+# 角色状态
+- 角色名称: {character_name}
+- 饥饿度: {hunger}/100 (低于30需要进食)
+- 精力: {energy}/100 (低于20需要休息)
+- 当前位置: {position}
+- 背包物品: {json.dumps(inventory, ensure_ascii=False)}
+
+# 游戏世界状态
+- 游戏时间: {game_state.get("GameTime", "未知")}
+- 可用设施: {json.dumps(list(environment.keys()), ensure_ascii=False)}
+
+# 黑板任务系统
+- 待认领任务数: {blackboard_summary.get("pending_tasks", 0)}
+- 进行中任务数: {blackboard_summary.get("active_tasks", 0)}
+- 待认领任务列表:
+{json.dumps(pending_tasks, ensure_ascii=False, indent=2)}
+
+# 可用配方
+{json.dumps(game_state.get("TaskRecipes", []), ensure_ascii=False, indent=2)}
+
+# 决策指南
+1. **生理需求优先**：饥饿度<30或精力<20时，优先解决生理需求
+2. **协作机制**：
+   - 如果需要食物但没有，可以发出"Eat"决策，系统会自动请求厨师制作
+   - 如果制作物品缺原料，系统会自动发布搬运任务
+   - 空闲时可以选择"CheckBlackboard"认领他人发布的任务
+3. **工作任务**：根据玩家发布的任务和自身职业进行生产
+
+# 请做出决策
+返回JSON格式：
+{{
+    "action": "Sleep|Eat|Craft|Plant|Harvest|CheckBlackboard|Wait",
+    "params": {{
+        "recipe_id": 配方ID（Craft时需要）,
+        "plant_id": 植物ID（Plant时需要）,
+        "target_name": 目标名称（Harvest时需要）
+    }},
+    "reasoning": "决策理由"
+}}
+"""
+    return prompt
+
+
+def rule_based_decision(
+    character_name: str,
+    game_state: Dict,
+    blackboard_summary: Dict
+) -> Dict:
+    """
+    基于规则的决策（LLM不可用时的备用方案）
+    """
+    character_info = game_state.get("Characters", {}).get(character_name, {})
+    hunger = character_info.get("Hunger", 100)
+    energy = character_info.get("Energy", 100)
+    skills = character_info.get("Skills", {})
+    profession = character_info.get("Profession", "Unknown")
+    
+    # 1. 生理需求优先
+    if energy < 20:
+        return {
+            "action": "Sleep", 
+            "params": {},
+            "reasoning": f"精力过低({energy:.1f}/100)，需要立即休息恢复体力"
+        }
+    
+    if hunger < 30:
+        return {
+            "action": "Eat", 
+            "params": {},
+            "reasoning": f"饥饿度过低({hunger:.1f}/100)，需要立即进食补充能量"
+        }
+    
+    # 2. 检查黑板任务
+    pending_tasks = blackboard_summary.get("pending_tasks", 0)
+    if pending_tasks > 0:
+        return {
+            "action": "CheckBlackboard", 
+            "params": {},
+            "reasoning": f"黑板上有{pending_tasks}个待认领任务，前往查看是否可以帮助其他角色"
+        }
+    
+    # 3. 执行玩家布置的任务（根据职业和技能选择）
+    recipes = game_state.get("TaskRecipes", [])
+    if recipes:
+        # 根据职业选择合适的配方
+        suitable_recipe = None
+        for recipe in recipes:
+            required_facility = recipe.get("RequiredFacility", "")
+            
+            # Farmer -> CultivateChamber (种植)
+            if profession == "Farmer" and required_facility == "CultivateChamber":
+                suitable_recipe = recipe
+                break
+            # Crafter -> WorkStation (制作)
+            elif profession == "Crafter" and required_facility == "WorkStation":
+                suitable_recipe = recipe
+                break
+            # Chef -> Stove (烹饪)
+            elif profession == "Chef" and required_facility == "Stove":
+                suitable_recipe = recipe
+                break
         
-        if not found:
-            return f"No facility matching '{facility_type}' found in the environment."
-        return "\n".join(found)
-# ==========================================
-# 3. 定义工具Schema
-# ==========================================
-TOOLS_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": "search_recipes",
-            "description": "ALWAYS call this first when starting a crafting task! Search for crafting recipes to understand what ingredients are needed. If an ingredient is not a raw material, search for that ingredient's recipe too. Raw materials are: Cotton, Corn. Everything else must be crafted.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "keyword": {"type": "string", "description": "Name of the item to craft (e.g. 'Clothes', 'Thread', 'Cloth', 'Meal'). Empty to list all recipes."}
-                },
-                "required": []
-            }
+        # 如果没找到合适的，选第一个
+        if not suitable_recipe:
+            suitable_recipe = recipes[0]
+        
+        task_name = suitable_recipe.get("TaskName", "未知任务")
+        recipe_id = suitable_recipe.get("TaskID", 1)
+        required_facility = suitable_recipe.get("RequiredFacility", "")
+        
+        return {
+            "action": "Craft",
+            "params": {"recipe_id": recipe_id},
+            "reasoning": f"作为{profession}，我擅长使用{required_facility}，准备执行任务：{task_name}"
         }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "find_items",
-            "description": "Find specific ITEMS (like Corn, Cotton, Meal) in containers. Do NOT use this to find facilities/workstations.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "item_name": {"type": "string", "description": "The name of the item to find (e.g. 'Cotton', 'Corn', 'Meal')."}
-                },
-                "required": ["item_name"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "find_facilities",
-            "description": "Find FACILITIES/WORKSTATIONS (like Stove, Storage, WorkStation) in the environment. Use this to locate where to go for crafting.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "facility_type": {"type": "string", "description": "The type of facility to find (e.g. 'Stove', 'Storage', 'WorkStation'). Empty to list all."}
-                },
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "finish_thinking",
-            "description": "Call this ONLY when you have decided on the final action.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "CommandType": {"type": "string", "enum": ["Move", "Take", "Put", "Use", "Wait"]},
-                    "TargetName": {"type": "string", "description": "The target actor name (e.g. 'Stove_1', 'Storage_A')."},
-                    "ParamID": {"type": "integer", "description": "For Take: ItemID of item to take FROM the container. For Put: ItemID of item currently IN YOUR INVENTORY to put into the container. For Use: TaskID of the recipe to execute. Item IDs: Cotton=1001, Corn=1002, Thread=2001, Cloth=2002, Meal=2003, Coat=3001."},
-                    "Count": {"type": "integer", "description": "Amount of items to handle."},
-                    "Belief": {
-                        "type": "object",
-                        "description": "Your current belief state to remember across requests.",
-                        "properties": {
-                            "Goal": {"type": "string", "description": "What is my current goal? (e.g., 'Craft a Meal')"},
-                            "Completed": {"type": "string", "description": "What have I done so far? (e.g., 'Took 5 Corn from Storage_A')"},
-                            "NextSteps": {"type": "string", "description": "What do I still need to do? (e.g., 'Move to Stove, Put Corn, Use recipe')"}
-                        },
-                        "required": ["Goal", "Completed", "NextSteps"]
-                    }
-                },
-                "required": ["CommandType", "TargetName", "Belief"]
-            }
-        }
+    
+    # 4. 无事可做，等待
+    return {
+        "action": "Wait", 
+        "params": {},
+        "reasoning": "当前没有紧急任务，也没有待认领的黑板任务，暂时等待新的指令"
     }
-]
 
-# === 路由定义 ===
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """用于游戏启动时的连接检查"""
-    print("收到健康检查请求 (Ping)")
-    return "OK", 200
+    """健康检查接口"""
+    return jsonify({
+        "status": "ok",
+        "message": "LLM Server is running",
+        "timestamp": datetime.now().isoformat(),
+        "llm_available": llm_client is not None
+    }), 200
 
 
 @app.route('/UpdateGameState', methods=['POST'])
-def game_state_update():
-    data = request.json
+def update_game_state():
+    """
+    更新游戏状态（可选接口，如果游戏不定期更新状态可以使用）
+    """
+    global game_state_cache
     
-    # === 格式化打印完整 JSON ===
-    print("\n" + "="*20 + " 收到完整 JSON 数据 " + "="*20)
-    print(json.dumps(data, indent=4, ensure_ascii=False))
-    print("="*60 + "\n")
-    
-    return jsonify({"status": "received"}), 200
+    try:
+        data = request.get_json()
+        game_state_cache = data
+        
+        # 定期清理旧任务
+        blackboard.cleanup_old_tasks(max_age_seconds=1800)  # 30分钟
+        
+        return jsonify({
+            "status": "success",
+            "message": "Game state updated"
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
 @app.route('/GetInstruction', methods=['POST'])
 def get_instruction():
-    raw_data = request.json
-    world_mgr = WorldDataManager(raw_data)
-    
-    # 构建初始对话
-    # 当前任务目标（后续可从外部传入或动态决策）
-    current_task = "Craft a Coat using the WorkStation."
-    
-    # 读取传入的信念状态
-    previous_belief = raw_data.get("Belief", None)
-    belief_str = ""
-    if previous_belief:
-        belief_str = (
-            f"\n=== YOUR PREVIOUS BELIEF (from last action) ===\n"
-            f"Goal: {previous_belief.get('Goal', 'Unknown')}\n"
-            f"Completed: {previous_belief.get('Completed', 'Nothing yet')}\n"
-            f"NextSteps: {previous_belief.get('NextSteps', 'Unknown')}\n"
-            f"==============================================\n"
+    """
+    获取角色的下一个指令
+    这是核心接口，包含动态验证和紧急状态处理
+    """
+    try:
+        data = request.get_json()
+        
+        # 解析请求
+        character_name = data.get("TargetAgent", "")
+        if not character_name:
+            return jsonify({
+                "status": "error",
+                "message": "Missing TargetAgent"
+            }), 400
+        
+        # 更新游戏状态缓存
+        game_state = {
+            "GameTime": data.get("GameTime", ""),
+            "Environment": data.get("Environment", {}),
+            "Characters": data.get("Characters", {}),
+            "ItemDatabase": data.get("ItemDatabase", {}),
+            "TaskRecipes": data.get("TaskRecipes", [])
+        }
+        
+        print(f"\n{'='*60}")
+        print(f"[GetInstruction] 处理 {character_name} 的指令请求")
+        print(f"游戏时间: {game_state.get('GameTime')}")
+        
+        # 获取角色信息
+        character_info = game_state.get("Characters", {}).get(character_name, {})
+        hunger = character_info.get("Hunger", 100)
+        energy = character_info.get("Energy", 100)
+        
+        # 检查紧急状态
+        is_emergency = False
+        emergency_reason = ""
+        
+        if energy < 10:
+            is_emergency = True
+            emergency_reason = "精力极低"
+        elif hunger < 10:
+            is_emergency = True
+            emergency_reason = "极度饥饿"
+        
+        # 如果是紧急状态，清空当前计划，强制重新决策
+        if is_emergency:
+            remaining_steps = planner.get_remaining_steps(character_name)
+            if remaining_steps > 0:
+                print(f"[紧急状态] {character_name} {emergency_reason}！清空{remaining_steps}步计划，重新决策")
+                planner.clear_plan(character_name)
+        
+        # 获取黑板摘要
+        blackboard_summary = blackboard.get_summary()
+        print(f"黑板任务: {blackboard_summary['pending_tasks']} 待认领, {blackboard_summary['active_tasks']} 进行中")
+        print(f"角色状态: Hunger={hunger}, Energy={energy}, 剩余计划={planner.get_remaining_steps(character_name)}步")
+        
+        # 第一步：调用LLM做高级决策（只在需要时调用）
+        # 如果队列中还有步骤，decompose_action会自动处理，不会到这里
+        decision = call_llm_for_decision(character_name, game_state, blackboard_summary)
+        high_level_action = decision.get("action", "Wait")
+        action_params = decision.get("params", {})
+        
+        print(f"[高级决策] {high_level_action} - 参数: {action_params}")
+        
+        # 第二步：使用Planner分解为单步指令（带验证）
+        next_step = planner.decompose_action(
+            character_name,
+            high_level_action,
+            game_state,
+            action_params
         )
-    
-    # 读取上一个命令的执行反馈
-    last_action_feedback = raw_data.get("LastActionFeedback", None)
-    feedback_str = ""
-    if last_action_feedback:
-        feedback_str = (
-            f"\n=== LAST ACTION FEEDBACK ===\n"
-            f"{last_action_feedback}\n"
-            f"============================\n"
-        )
-    
-    # 获取角色档案
-    profile_str = ""
-    if world_mgr.my_profile:
-        profile_str = world_mgr.my_profile.get_profile_str()
-    
-    messages = [
-        {"role": "system", "content": (
-            f"You are {world_mgr.agent_name}. You are in a survival/crafting game.\n\n"
-            f"{profile_str}\n"
-            f"Current Status:\n{world_mgr.get_self_status_str()}\n\n"
-            f"=== CURRENT TASK ===\n{current_task}\n"
-            f"{belief_str}"
-            f"{feedback_str}\n"
-            "=== CRITICAL: CHECK CURRENT WORLD STATE ===\n"
-            "ALWAYS check the CURRENT world state before deciding your next action!\n"
-            "- Check your INVENTORY: what items do you currently have?\n"
-            "- Check the FACILITY's inventory: what items are already there?\n"
-            "- If your inventory is EMPTY but the facility has materials, you should Use (not Put)!\n"
-            "- If a step in NextSteps is already done (based on world state), SKIP to the next step!\n\n"
-            "=== CRITICAL: PLANNING BEFORE ACTION ===\n"
-            "BEFORE taking any action, you MUST:\n"
-            "1. Use 'search_recipes' to find the recipe for your target item (e.g., 'Coat')\n"
-            "2. Check the ingredients - if an ingredient is NOT a raw material (like Cotton, Corn), \n"
-            "   you need to craft it first! Use 'search_recipes' again to find how to make that ingredient.\n"
-            "3. Use 'find_items' to check what materials are available in Storage.\n"
-            "4. Plan your production chain from raw materials to final product.\n\n"
-            "Decision Policy:\n"
-            "- If Hunger < 30: find food (e.g., 'Meal') and eat it.\n"
-            "- Else: work on your CURRENT TASK following the action order below.\n\n"
-            "=== CRITICAL: CRAFTING RULES ===\n"
-            "There are TWO types of tasks:\n\n"
-            "**TYPE A: Tasks WITH ingredients (crafting/cooking)**\n"
-            "The facility can ONLY use materials from its OWN inventory, NOT from your backpack!\n"
-            "You MUST Put ingredients INTO the facility BEFORE using a recipe.\n"
-            "Required order: Take -> Move -> Put -> Use\n"
-            "1) Take: collect required ingredients from Storage. ParamID = ItemID of the item (Cotton=1001, Corn=1002, Thread=2001, Cloth=2002, Meal=2003, Coat=3001)\n"
-            "2) Move: go to the required facility for the recipe.\n"
-            "3) Put: place ingredients from YOUR INVENTORY into the facility. ParamID = ItemID of item IN YOUR INVENTORY (not the product you want to make!)\n"
-            "4) Use: execute the recipe with TaskID. ParamID = TaskID. The facility consumes materials FROM ITS OWN INVENTORY and the product goes to your inventory.\n\n"
-            "**IMPORTANT**: After Put, you MUST call Use to actually craft! Put only moves items, Use triggers the recipe!\n\n"
-            "**TYPE B: Tasks WITHOUT ingredients (farming/planting)**\n"
-            "These tasks produce raw materials and don't need any input materials.\n"
-            "Required order: Move -> Use (that's it!)\n"
-            "1) Move: go to the CultivateChamber.\n"
-            "2) Use: execute the planting task with TaskID to grow crops.\n"
-            "   The product goes to your inventory after completion.\n\n"
-            "Example for TYPE A - making Thread from Cotton:\n"
-            "  - Take Cotton from Storage (ParamID=1001, Count=5)\n"
-            "  - Move to WorkStation\n"
-            "  - Put Cotton into WorkStation (ParamID=1001, Count=5) <- ParamID is Cotton's ID, NOT Thread's ID!\n"
-            "  - Use TaskID 2001 at WorkStation (ParamID=2001) <- This actually crafts Thread!\n\n"
-            "Example for TYPE A - making Coat (needs Cloth x2, Thread x3):\n"
-            "  - First craft Thread x3 and Cloth x2 using the above pattern\n"
-            "  - Put Cloth x2 into WorkStation (ParamID=2002)\n"
-            "  - Put Thread x3 into WorkStation (ParamID=2001)\n"
-            "  - Use TaskID 3001 at WorkStation (ParamID=3001)\n\n"
-            "Example for TYPE B - planting Cotton (no ingredients needed):\n"
-            "  - Move to CultivateChamber\n"
-            "  - Use TaskID 1001 at CultivateChamber\n\n"
-            "When calling finish_thinking, you MUST provide a Belief object that records:\n"
-            "- Goal: your FULL production plan\n"
-            "- Completed: what you just did AND what products you have made. UPDATE THIS EACH STEP!\n"
-            "- NextSteps: what remains to be done (be specific about quantities). UPDATE THIS EACH STEP!\n\n"
-            "Use tools to gather info, then call 'finish_thinking' with your action AND belief."
-        )}
-    ]
-
-    final_command = None
-    
-    # 离线模拟（无 API 密钥或明确开启 LLM_MOCK），根据世界状态给出下一步
-    if MOCK_MODE:
-        try:
-            # 选择目标配方：制作套餐 (Meal)
-            target_task = next((t for t in GAME_STATIC_DATA.recipes_list if t.get('ProductID') == 2003), None)
-            storage_actor = next((a for a in world_mgr.environment if a.get('ActorName') == 'Storage_A'), None)
-            stove_actor = next((a for a in world_mgr.environment if a.get('ActorName') == 'Stove_1'), None)
-            chef = world_mgr.my_status
-            chef_loc = chef.get('Location', '')
-            chef_inv = chef.get('Inventory', [])
-            needed_item_id = target_task['Ingredients'][0]['ItemID'] if target_task else 1002
-            needed_item_name = GAME_STATIC_DATA.get_item_name(needed_item_id)
-            needed_count = target_task['Ingredients'][0]['Count'] if target_task else 5
-
-            def inv_count(inv_list, item_name):
-                for it in inv_list:
-                    # 使用模糊匹配，因为数据源可能有差异
-                    if it.get('name', '').lower() == item_name.lower():
-                        return it.get('count', 0)
-                return 0
-
-            # 打印调试信息
-            print(f"\n=== MOCK 决策调试 ===")
-            print(f"目标配方: {target_task.get('TaskName') if target_task else 'None'}")
-            print(f"所需物品: {needed_item_name} (ID: {needed_item_id}) x{needed_count}")
-            print(f"角色位置: {chef_loc}")
-            print(f"角色背包: {chef_inv}")
-            print(f"背包中 {needed_item_name} 数量: {inv_count(chef_inv, needed_item_name)}")
-            if stove_actor:
-                stove_inv = stove_actor.get('Inventory', {}).get('items', [])
-                print(f"Stove 库存: {stove_inv}")
-                print(f"Stove 中 {needed_item_name} 数量: {inv_count(stove_inv, needed_item_name)}")
-
-            # 判断 4 步中的下一步
-            reason = ""
-            
-            # 1) 先收集原料（Take）
-            if inv_count(chef_inv, needed_item_name) < needed_count:
-                reason = f"背包中 {needed_item_name} 不足 ({inv_count(chef_inv, needed_item_name)}/{needed_count})，需要从 Storage 拿取"
-                final_command = {
-                    "CharacterName": world_mgr.agent_name,
-                    "CommandType": "Take",
-                    "TargetName": storage_actor['ActorName'] if storage_actor else "Storage_A",
-                    "ParamID": needed_item_id,
-                    "Count": needed_count,
-                    "Reason": reason
-                }
-            # 2) 然后移动到设施（Move）
-            elif chef_loc != (stove_actor['ActorName'] if stove_actor else 'Stove_1'):
-                reason = f"已有足够原料，当前在 {chef_loc}，需要移动到 Stove"
-                final_command = {
-                    "CharacterName": world_mgr.agent_name,
-                    "CommandType": "Move",
-                    "TargetName": stove_actor['ActorName'] if stove_actor else "Stove_1",
-                    "ParamID": 0,
-                    "Count": 0,
-                    "Reason": reason
-                }
-            # 3) 将原料放入设施（Put）
-            elif inv_count(stove_actor.get('Inventory', {}).get('items', []), needed_item_name) < needed_count:
-                reason = f"已到达 Stove，需要将 {needed_item_name} 放入设施"
-                final_command = {
-                    "CharacterName": world_mgr.agent_name,
-                    "CommandType": "Put",
-                    "TargetName": stove_actor['ActorName'] if stove_actor else "Stove_1",
-                    "ParamID": needed_item_id,
-                    "Count": needed_count,
-                    "Reason": reason
-                }
-            # 4) 在设施执行任务（Use）
-            else:
-                reason = f"原料已放入 Stove，执行配方 TaskID={target_task['TaskID'] if target_task else 200}"
-                final_command = {
-                    "CharacterName": world_mgr.agent_name,
-                    "CommandType": "Use",
-                    "TargetName": stove_actor['ActorName'] if stove_actor else "Stove_1",
-                    "ParamID": (target_task['TaskID'] if target_task else 200),
-                    "Count": 1,
-                    "Reason": reason
-                }
-            
-            print(f"决策: {final_command['CommandType']} -> {final_command['TargetName']}")
-            print(f"原因: {reason}")
-            print(f"======================\n")
-
-        except Exception as e:
-            print(f"MOCK 决策失败: {e}")
-            final_command = {
-                "CharacterName": world_mgr.agent_name,
+        
+        if not next_step:
+            # 没有可执行的步骤，返回等待
+            print(f"[Planner] 无可执行步骤，返回Wait")
+            response = {
+                "CharacterName": character_name,
                 "CommandType": "Wait",
                 "TargetName": "",
                 "ParamID": 0,
-                "Count": 0
+                "Count": 0,
+                "Decision": {
+                    "action": high_level_action,
+                    "params": action_params,
+                    "reasoning": decision.get("reasoning", "")
+                },
+                "RemainingSteps": 0
             }
-        return jsonify(final_command), 200
-    
-    # 最多允许 5 轮思考，防止死循环
-    for i in range(5):
-        print(f"--- Round {i+1} Thinking ---")
-        
-        # 1. 调用 LLM
-        response = openai_client.chat.completions.create(
-            model=MODEL_NAME, # 支持 Function Calling 的模型
-            messages=messages,
-            tools=TOOLS_SCHEMA,
-            tool_choice="auto" 
-        )
-        
-        response_msg = response.choices[0].message
-        messages.append(response_msg) # 将 LLM 的回复加入历史
-        
-        # 2. 检查是否有工具调用
-        if response_msg.tool_calls:
-            for tool_call in response_msg.tool_calls:
-                func_name = tool_call.function.name
-                args = json.loads(tool_call.function.arguments)
-                print(f"Tool Call: {func_name} | Args: {args}")
-                
-                tool_result = ""
-                
-                # --- 执行本地逻辑 ---
-                if func_name == "search_recipes":
-                    tool_result = world_mgr.search_recipes(args.get("keyword", ""))
-                elif func_name == "find_items":
-                    tool_result = world_mgr.find_items(args.get("item_name", ""))
-                elif func_name == "find_facilities":
-                    tool_result = world_mgr.find_facilities(args.get("facility_type", ""))
-                elif func_name == "finish_thinking":
-                    # --- 思考结束，提取指令和信念 ---
-                    belief = args.get("Belief", {})
-                    final_command = {
-                        "CharacterName": world_mgr.agent_name,
-                        "CommandType": args.get("CommandType"),
-                        "TargetName": args.get("TargetName"),
-                        "ParamID": args.get("ParamID", 0),
-                        "Count": args.get("Count", 0),
-                        "Belief": belief
-                    }
-                    # 打印信念状态
-                    print(f"\n=== Agent Belief ===")
-                    print(f"Goal: {belief.get('Goal', 'N/A')}")
-                    print(f"Completed: {belief.get('Completed', 'N/A')}")
-                    print(f"NextSteps: {belief.get('NextSteps', 'N/A')}")
-                    print(f"===================\n")
-                    break # 跳出工具循环
-                
-                print(f"Tool Result: {tool_result[:100]}...") # 打印部分结果
-                
-                # 3. 将工具结果反馈给 LLM
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": func_name,
-                    "content": tool_result
-                })
-            
-            if final_command:
-                break
         else:
-            # LLM 没有调用工具，可能在闲聊，强制结束或者继续引导
-            print("LLM Response without tool:", response_msg.content)
-            # 如果没有得到指令，默认给个 Wait
-            break
+            print(f"[Planner] 下一步: {next_step.CommandType} -> {next_step.TargetName or next_step.ParamID}")
+            # 构建返回的指令（符合FAgentCommand结构）
+            response = {
+                "CharacterName": character_name,
+                "CommandType": next_step.CommandType,
+                "TargetName": next_step.TargetName,
+                "ParamID": next_step.ParamID,
+                "Count": next_step.Count,
+                "Decision": {
+                    "action": high_level_action,
+                    "params": action_params,
+                    "reasoning": decision.get("reasoning", "")
+                },
+                "RemainingSteps": planner.get_remaining_steps(character_name)
+            }
+        
+        print(f"[返回指令] {response}")
+        print(f"{'='*60}\n")
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        import traceback
+        print(f"[错误] {e}")
+        traceback.print_exc()
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
-    # 兜底：如果循环结束还没结果
-    if not final_command:
-        print("Warning: No command generated after max rounds.")
-        final_command = {
-            "CharacterName": world_mgr.agent_name,
-            "CommandType": "Wait",
-            "TargetName": "",
-            "ParamID": 0,
-            "Count": 0
-        }
 
-    return jsonify(final_command), 200
+@app.route('/CompleteTask', methods=['POST'])
+def complete_task():
+    """
+    标记黑板任务为完成
+    """
+    try:
+        data = request.get_json()
+        task_id = data.get("task_id", "")
+        
+        if blackboard.complete_task(task_id):
+            return jsonify({
+                "status": "success",
+                "message": f"Task {task_id} completed"
+            }), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"Task {task_id} not found"
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route('/GetBlackboard', methods=['GET'])
+def get_blackboard():
+    """
+    获取黑板状态（调试用）
+    """
+    try:
+        summary = blackboard.get_summary()
+        return jsonify(summary), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
 if __name__ == '__main__':
     print("="*60)
-    print("RimSpace LLM 服务器")
-    print(f"模型: {MODEL_NAME}")
-    print(f"API 地址: {OPENAI_BASE_URL}")
+    print("RimSpace LLM Server - Multi-Agent System")
     print("="*60)
-    print("\n服务器已启动，监听端口 5000...")
+    print(f"OpenAI库: {'已安装' if OPENAI_AVAILABLE else '未安装'}")
+    print(f"LLM客户端: {'已初始化' if llm_client else '未初始化（将使用规则引擎）'}")
+    print("="*60)
+    print("\n服务器启动中...")
+    print("接口列表:")
+    print("  - GET  /health          : 健康检查")
+    print("  - POST /GetInstruction  : 获取角色指令 [核心]")
+    print("  - POST /UpdateGameState : 更新游戏状态（可选）")
+    print("  - POST /CompleteTask    : 完成黑板任务")
+    print("  - GET  /GetBlackboard   : 查看黑板状态（调试）")
+    print("="*60 + "\n")
+    
     app.run(host='0.0.0.0', port=5000, debug=True)
