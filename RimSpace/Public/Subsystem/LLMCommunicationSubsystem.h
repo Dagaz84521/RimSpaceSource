@@ -53,7 +53,9 @@ private:
 	
 	FTimerHandle AutoUpdateTimerHandle;
 	EAgentCommandType StringToCommandType(const FString& CmdStr);
-	FString ServerURL = TEXT("http://localhost:5000");
+	FString ServerURL = TEXT("http://localhost:5001");
 	double RequestStartTime = 0.0;
 	
+	// 待处理的请求计数器，用于多角色并发请求时的暂停/恢复控制
+	int32 PendingRequestCount = 0;
 };

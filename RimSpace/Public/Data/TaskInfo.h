@@ -38,4 +38,17 @@ public:
 	TArray<FTask> Tasks;
 	
 	FTask* GetTask(int32 TaskID);
+
+#if WITH_EDITOR
+	// 从 JSON 文件同步数据到此 DataAsset（编辑器中可点击的按钮）
+	UFUNCTION(CallInEditor, Category = "Task")
+	void SyncFromJSON();
+#endif
+
+private:
+	// 从 JSON 文件加载任务数据
+	void LoadFromJSON(const FString& JSONFilePath);
+	
+	// 辅助函数：将字符串转换为 EInteractionType
+	EInteractionType StringToInteractionType(const FString& TypeString) const;
 };

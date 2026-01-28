@@ -3,6 +3,9 @@
 
 #include "GameMode/RimSpaceGameplayGameMode.h"
 #include "Actor/RimSpaceActorBase.h"
+#include "Actor/Bed.h"
+#include "Actor/WorkStation.h"
+#include "Actor/CultivateChamber.h"
 #include "Component/InventoryComponent.h"
 #include "JsonObjectConverter.h"
 #include "Data/ItemStack.h"
@@ -32,11 +35,13 @@ void ARimSpaceGameplayGameMode::LoadAndApplyConfig()
 		return;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Config Loaded! Found %d storage configs and %d character configs."), 
-		InitData.Storages.Num(), InitData.Characters.Num());
+	UE_LOG(LogTemp, Log, TEXT("Config Loaded! Found %d storage configs, %d workstation configs, %d cultivatechamber configs, and %d character configs."), 
+		InitData.Storages.Num(), InitData.WorkStations.Num(), InitData.CultivateChambers.Num(), InitData.Characters.Num());
 
 	// 4. 应用配置
 	ApplyStorageConfig(InitData.Storages);
+	ApplyWorkStationConfig(InitData.WorkStations);
+	ApplyCultivateChamberConfig(InitData.CultivateChambers);
 	ApplyCharacterConfig(InitData.Characters);
 }
 
@@ -86,15 +91,124 @@ void ARimSpaceGameplayGameMode::ApplyStorageConfig(const TArray<FConfigStorage>&
 	}
 }
 
+void ARimSpaceGameplayGameMode::ApplyWorkStationConfig(const TArray<FConfigWorkStation>& WorkStationConfigs)
+{
+	// 获取场景中所有的 WorkStation
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AWorkStation::StaticClass(), FoundActors);
+
+	// 建立名字到Actor的映射
+	TMap<FString, AWorkStation*> WorkStationMap;
+	for (AActor* Actor : FoundActors)
+	{
+		if (AWorkStation* WS = Cast<AWorkStation>(Actor))
+		{
+			WorkStationMap.Add(WS->GetActorName(), WS);
+		}
+	}
+
+	// 应用配置
+	for (const FConfigWorkStation& Config : WorkStationConfigs)
+	{
+		if (AWorkStation** FoundPtr = WorkStationMap.Find(Config.ActorName))
+		{
+			AWorkStation* TargetWS = *FoundPtr;
+			
+			// 设置任务列表
+			for (const FConfigTask& Task : Config.Tasks)
+			{
+				TargetWS->AddTask(Task.TaskID, Task.Quantity);
+			}
+			
+			UE_LOG(LogTemp, Log, TEXT("Configured WorkStation: %s with %d tasks"), 
+				*Config.ActorName, Config.Tasks.Num());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Config specified WorkStation '%s' but it was not found!"), *Config.ActorName);
+		}
+	}
+}
+
+void ARimSpaceGameplayGameMode::ApplyCultivateChamberConfig(const TArray<FConfigCultivateChamber>& CultivateChamberConfigs)
+{
+	// 获取场景中所有的 CultivateChamber
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACultivateChamber::StaticClass(), FoundActors);
+
+	// 建立名字到Actor的映射
+	TMap<FString, ACultivateChamber*> ChamberMap;
+	for (AActor* Actor : FoundActors)
+	{
+		if (ACultivateChamber* CC = Cast<ACultivateChamber>(Actor))
+		{
+			ChamberMap.Add(CC->GetActorName(), CC);
+		}
+	}
+
+	// 应用配置
+	for (const FConfigCultivateChamber& Config : CultivateChamberConfigs)
+	{
+		if (ACultivateChamber** FoundPtr = ChamberMap.Find(Config.ActorName))
+		{
+			ACultivateChamber* TargetCC = *FoundPtr;
+			
+			// 设置种植的作物
+			if (Config.PlantedCropID > 0)
+			{
+				TargetCC->SetPlantedCrop(Config.PlantedCropID);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Config specified CultivateChamber '%s' but it was not found!"), *Config.ActorName);
+		}
+	}
+}
+
 void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharacter>& CharacterConfigs)
 {
     // 获取场景中现有的所有角色
     TArray<AActor*> FoundActors;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ARimSpaceCharacterBase::StaticClass(), FoundActors);
 
+    // 获取场景中所有的床
+    TArray<AActor*> FoundBeds;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABed::StaticClass(), FoundBeds);
+    TMap<FString, ABed*> BedMap;
+    for (AActor* Actor : FoundBeds)
+    {
+        if (ABed* Bed = Cast<ABed>(Actor))
+        {
+            BedMap.Add(Bed->GetActorName(), Bed);
+        }
+    }
+
     for (const FConfigCharacter& Config : CharacterConfigs)
     {
         ARimSpaceCharacterBase* TargetChar = nullptr;
+        FVector FinalSpawnLocation = Config.SpawnLocation;
+
+        // 如果配置了床，尝试获取床的位置
+        ABed* AssignedBed = nullptr;
+        if (!Config.AssignedBedName.IsEmpty())
+        {
+            if (ABed** FoundBed = BedMap.Find(Config.AssignedBedName))
+            {
+                AssignedBed = *FoundBed;
+                // 使用床的交互点位置，并在Z轴上稍微抬高一些，确保角色站在地面上
+                FVector BedInteractionPoint = AssignedBed->GetInteractionPoint()->GetComponentLocation();
+                // 添加一个向上的偏移量（例如100单位，约1米），确保角色不会穿过床或悬空
+                FinalSpawnLocation = BedInteractionPoint + FVector(0, 0, -50.0f);
+                UE_LOG(LogTemp, Log, TEXT("Character %s assigned to bed %s at location %s"), 
+                    *Config.CharacterName, *Config.AssignedBedName, *FinalSpawnLocation.ToString());
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Bed '%s' not found for character %s, using default spawn location"), 
+                    *Config.AssignedBedName, *Config.CharacterName);
+            }
+        }
 
         // --- 步骤 A: 尝试在场景里找同名角色 ---
         for (AActor* Actor : FoundActors)
@@ -107,6 +221,12 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
                     UE_LOG(LogTemp, Log, TEXT("Found existing character in level: %s"), *Config.CharacterName);
                     // 现有角色已经执行过 BeginPlay，直接更新属性即可
                     TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
+                    // 设置床位并移动到床的位置
+                    if (AssignedBed)
+                    {
+                        TargetChar->SetAssignedBed(AssignedBed);
+                        TargetChar->SetActorLocation(FinalSpawnLocation);
+                    }
                     break;
                 }
             }
@@ -117,7 +237,7 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
         {
             if (DefaultCharacterClass)
             {
-                FTransform SpawnTransform(FRotator::ZeroRotator, Config.SpawnLocation);
+                FTransform SpawnTransform(FRotator::ZeroRotator, FinalSpawnLocation);
 
                 // 1. 使用 SpawnActorDeferred 进行延迟生成
                 // 这会创建 Actor 但暂不调用 BeginPlay
@@ -133,6 +253,12 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
                 {
                     // 2. 在 BeginPlay 之前初始化数据（设置正确的名字！）
                     TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
+                    
+                    // 2.5 设置绑定的床
+                    if (AssignedBed)
+                    {
+                        TargetChar->SetAssignedBed(AssignedBed);
+                    }
                     
                     // 3. 设置职业模型（可选，放在这也行，或者 Finish 之后也行）
                     if (!Config.Profession.IsEmpty())
@@ -150,7 +276,9 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
                     // 此时 BeginPlay 里的 GetActorName() 将返回刚才设置好的 Config.CharacterName
                     UGameplayStatics::FinishSpawningActor(TargetChar, SpawnTransform);
                     
-                    UE_LOG(LogTemp, Log, TEXT("Spawned and Initialized new character: %s"), *Config.CharacterName);
+                    UE_LOG(LogTemp, Log, TEXT("Spawned and Initialized new character: %s at %s"), 
+                        *Config.CharacterName, 
+                        AssignedBed ? *FString::Printf(TEXT("Bed '%s'"), *AssignedBed->GetActorName()) : TEXT("default location"));
                 }
             }
             else

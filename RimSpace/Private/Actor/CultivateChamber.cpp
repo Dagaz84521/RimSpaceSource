@@ -264,6 +264,27 @@ ACultivateChamber::ACultivateChamber()
 	ActorType = EInteractionType::EAT_CultivateChamber;
 }
 
+void ACultivateChamber::SetPlantedCrop(int32 CropItemID)
+{
+	// 根据ItemID设置种植类型
+	if (CropItemID == 1001) // 棉花
+	{
+		TargetCultivateType = ECultivateType::ECT_Cotton;
+		CurrentPhase = ECultivatePhase::ECP_WaitingToPlant;
+		UE_LOG(LogTemp, Log, TEXT("[CultivateChamber %s] Set to plant Cotton"), *GetActorName());
+	}
+	else if (CropItemID == 1002) // 玉米
+	{
+		TargetCultivateType = ECultivateType::ECT_Corn;
+		CurrentPhase = ECultivatePhase::ECP_WaitingToPlant;
+		UE_LOG(LogTemp, Log, TEXT("[CultivateChamber %s] Set to plant Corn"), *GetActorName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[CultivateChamber %s] Unknown CropItemID: %d"), *GetActorName(), CropItemID);
+	}
+}
+
 TSharedPtr<FJsonObject> ACultivateChamber::GetActorDataAsJson() const
 {
 	// 先调用父类获取基础信息（ActorName, ActorType, Inventory）

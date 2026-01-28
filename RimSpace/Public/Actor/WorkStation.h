@@ -27,6 +27,9 @@ public:
 	//工作相关逻辑
 	void SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID);
 	virtual void UpdateEachMinute_Implementation(int32 NewMinute) override;
+	
+	// 配置初始化方法
+	void AddTask(int32 TaskID, int32 Quantity);
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
 	TObjectPtr<class UInventoryComponent> Inventory;

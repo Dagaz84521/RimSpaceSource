@@ -53,10 +53,22 @@ void ULLMCommunicationSubsystem::SendGameStateToLLM()
 
 void ULLMCommunicationSubsystem::RequestNextAgentCommand(FName CharacterName)
 {
-	// 1. 暂停游戏时间 (保持上一轮的逻辑)
-    URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
+	// 1. 增加待处理请求计数
+	PendingRequestCount++;
 	
-    // 2. 构建请求数据 (这是修改的重点)
+	// 2. 如果这是第一个请求，暂停游戏时间
+    URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
+	if (PendingRequestCount == 1 && TimeSubsystem)
+	{
+		TimeSubsystem->StopTimeSystem();
+		UE_LOG(LogTemp, Log, TEXT("Game paused (pending requests: %d)"), PendingRequestCount);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Request queued for %s (pending requests: %d)"), *CharacterName.ToString(), PendingRequestCount);
+	}
+	
+    // 3. 构建请求数据
     TSharedPtr<FJsonObject> RootJson = MakeShareable(new FJsonObject());
     
     // A. 基础请求信息
@@ -87,13 +99,7 @@ void ULLMCommunicationSubsystem::RequestNextAgentCommand(FName CharacterName)
         RootJson->SetObjectField("Characters", CharacterManager->GetCharactersDataAsJson());
     }
 
-    // B.4 物品和任务配方信息（让 LLM 知道有哪些物品和可用的配方）
-    URimSpaceGameInstance* GI = Cast<URimSpaceGameInstance>(GetGameInstance());
-    if (GI)
-    {
-        RootJson->SetObjectField("ItemDatabase", GI->GetAllItemsDataAsJson());
-        RootJson->SetObjectField("TaskRecipes", GI->GetAllTasksDataAsJson());
-    }
+    // 注意: ItemDatabase 和 TaskRecipes 不再发送，服务器从本地 Data 文件夹读取
 
     // 3. 序列化并发送
     FString RequestBody;
@@ -145,18 +151,20 @@ void ULLMCommunicationSubsystem::OnCheckConnectionComplete(FHttpRequestPtr Reque
 void ULLMCommunicationSubsystem::OnCommandResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response,
 	bool bWasSuccessful)
 {
+	// 1. 减少待处理请求计数
+	PendingRequestCount = FMath::Max(0, PendingRequestCount - 1);
 	
+	// 2. 处理响应
 	if (bWasSuccessful && Response.IsValid() && Response->GetResponseCode() == 200)
 	{
 		FString ResponseStr = Response->GetContentAsString();
-		UE_LOG(LogTemp, Log, TEXT("Received Command: %s"), *ResponseStr);
+		UE_LOG(LogTemp, Log, TEXT("Received Command: %s (remaining requests: %d)"), *ResponseStr, PendingRequestCount);
 
 		// 解析指令
 		FAgentCommand NewCommand;
-		// 假设服务器返回的 JSON 符合 FAgentCommand 的结构
 		if (FJsonObjectConverter::JsonObjectStringToUStruct(ResponseStr, &NewCommand, 0, 0))
 		{
-			// 4. 执行指令
+			// 执行指令
 			UCharacterManagerSubsystem* CharacterManager = GetWorld()->GetSubsystem<UCharacterManagerSubsystem>();
 			if (CharacterManager)
 			{
@@ -170,7 +178,18 @@ void ULLMCommunicationSubsystem::OnCommandResponseReceived(FHttpRequestPtr Reque
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to get command from server."));
+		UE_LOG(LogTemp, Error, TEXT("Failed to get command from server (remaining requests: %d)"), PendingRequestCount);
+	}
+	
+	// 3. 如果所有请求都已完成，恢复游戏时间
+	if (PendingRequestCount == 0)
+	{
+		URimSpaceTimeSubsystem* TimeSubsystem = GetGameInstance()->GetSubsystem<URimSpaceTimeSubsystem>();
+		if (TimeSubsystem)
+		{
+			TimeSubsystem->ResumeTimeSystem();
+			UE_LOG(LogTemp, Log, TEXT("All requests completed. Game resumed."));
+		}
 	}
 }
 

@@ -3,36 +3,21 @@
 
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "Data/TaskInfo.h"
+#include "Data/ItemInfo.h"
 #include "Dom/JsonObject.h"
 
 void URimSpaceGameInstance::Init()
 {
 	Super::Init();
-
-	ItemMap.Empty();
-
-	for (UItemData* Item : AllItems)
-	{
-		if (!Item) continue;
-
-		if (ItemMap.Contains(Item->ItemID))
-		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("Duplicate ItemID %d in ItemData"), Item->ItemID);
-			continue;
-		}
-
-		ItemMap.Add(Item->ItemID, Item);
-	}
 }
 
-const UItemData* URimSpaceGameInstance::GetItemData(int32 ItemID) const
+const FItem* URimSpaceGameInstance::GetItemData(int32 ItemID) const
 {
-	if (const TObjectPtr<UItemData>* Found = ItemMap.Find(ItemID))
+	if (!ItemInfo)
 	{
-		return Found->Get();
+		return nullptr;
 	}
-	return nullptr;
+	return ItemInfo->GetItem(ItemID);
 }
 
 const FTask* URimSpaceGameInstance::GetTaskData(int32 TaskID) const
@@ -45,21 +30,20 @@ TSharedPtr<FJsonObject> URimSpaceGameInstance::GetAllItemsDataAsJson() const
 	TSharedPtr<FJsonObject> RootJson = MakeShareable(new FJsonObject());
 	TArray<TSharedPtr<FJsonValue>> ItemsArray;
 	
-	for (const auto& Pair : ItemMap)
+	if (!ItemInfo) return RootJson;
+	
+	for (const FItem& Item : ItemInfo->Items)
 	{
-		const UItemData* Item = Pair.Value.Get();
-		if (!Item) continue;
-		
 		TSharedPtr<FJsonObject> ItemJson = MakeShareable(new FJsonObject());
-		ItemJson->SetNumberField(TEXT("ItemID"), Item->ItemID);
-		ItemJson->SetStringField(TEXT("ItemName"), Item->ItemName.ToString());
-		ItemJson->SetStringField(TEXT("DisplayName"), Item->DisplayName.ToString());
-		ItemJson->SetNumberField(TEXT("SpaceCost"), Item->SpaceCost);
-		ItemJson->SetBoolField(TEXT("IsFood"), Item->bIsFood);
-		if (Item->bIsFood)
+		ItemJson->SetNumberField(TEXT("ItemID"), Item.ItemID);
+		ItemJson->SetStringField(TEXT("ItemName"), Item.ItemName.ToString());
+		ItemJson->SetStringField(TEXT("DisplayName"), Item.DisplayName.ToString());
+		ItemJson->SetNumberField(TEXT("SpaceCost"), Item.SpaceCost);
+		ItemJson->SetBoolField(TEXT("IsFood"), Item.bIsFood);
+		if (Item.bIsFood)
 		{
-			ItemJson->SetNumberField(TEXT("NutritionValue"), Item->NutritionValue);
-			ItemJson->SetNumberField(TEXT("EatDuration"), Item->EatDuration);
+			ItemJson->SetNumberField(TEXT("NutritionValue"), Item.NutritionValue);
+			ItemJson->SetNumberField(TEXT("EatDuration"), Item.EatDuration);
 		}
 		
 		ItemsArray.Add(MakeShareable(new FJsonValueObject(ItemJson)));
@@ -94,7 +78,7 @@ TSharedPtr<FJsonObject> URimSpaceGameInstance::GetAllTasksDataAsJson() const
 			IngredientJson->SetNumberField(TEXT("Count"), Ingredient.Count);
 			
 			// 尝试获取物品名称以便 LLM 理解
-			if (const UItemData* ItemData = GetItemData(Ingredient.ItemID))
+			if (const FItem* ItemData = GetItemData(Ingredient.ItemID))
 			{
 				IngredientJson->SetStringField(TEXT("ItemName"), ItemData->DisplayName.ToString());
 			}
@@ -104,7 +88,7 @@ TSharedPtr<FJsonObject> URimSpaceGameInstance::GetAllTasksDataAsJson() const
 		TaskJson->SetArrayField(TEXT("Ingredients"), IngredientsArray);
 		
 		// 获取产物名称
-		if (const UItemData* ProductData = GetItemData(Task.ProductID))
+		if (const FItem* ProductData = GetItemData(Task.ProductID))
 		{
 			TaskJson->SetStringField(TEXT("ProductName"), ProductData->DisplayName.ToString());
 		}

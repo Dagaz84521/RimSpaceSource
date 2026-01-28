@@ -46,6 +46,9 @@ public:
 
 	// 工作相关逻辑
 	void SetWorker(class ARimSpaceCharacterBase* NewWorker);
+	
+	// 配置初始化方法
+	void SetPlantedCrop(int32 CropItemID);
 
 	ACultivateChamber();
 protected:

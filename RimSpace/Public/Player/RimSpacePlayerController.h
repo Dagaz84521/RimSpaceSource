@@ -94,6 +94,14 @@ private:
 public:
 	void OpenQuantityInputWidget(const FText& Title, int32 CurrentVal, FOnQuantityInputConfirm Callback);
 	void CloseQuantityInputWidget();
+	
+	// 控制台命令：给角色下达指令
+	// 用法: SetCharacterCommand <CharacterName> <CommandType> <Target/ItemID> <Count>
+	// 例如: SetCharacterCommand Farmer Move Storage
+	// 例如: SetCharacterCommand Chef Take 1001 5
+	UFUNCTION(Exec)
+	void SetCharacterCommand(FString CharacterName, FString CommandType, FString Param1 = "", int32 Param2 = 0);
+	
 private:
 	
 	void SpawnCommandMenu();

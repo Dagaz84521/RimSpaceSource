@@ -101,6 +101,15 @@ AWorkStation::AWorkStation()
 	ActorType = EInteractionType::EAT_WorkStation;
 }
 
+void AWorkStation::AddTask(int32 TaskID, int32 Quantity)
+{
+	if (Quantity > 0)
+	{
+		TaskList.FindOrAdd(TaskID) = Quantity;
+		UE_LOG(LogTemp, Log, TEXT("[WorkStation %s] Added Task %d with quantity %d"), *GetActorName(), TaskID, Quantity);
+	}
+}
+
 void AWorkStation::SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID)
 {
 	CurrentWorker = NewWorker;

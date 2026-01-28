@@ -8,9 +8,12 @@
 #include "Actor/RimSpaceActorBase.h"
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "UI/QuantitySelectWidget.h"
+#include "Subsystem/CharacterManagerSubsystem.h"
+#include "Subsystem/LLMCommunicationSubsystem.h"
 #include "Interface/CommandProvider.h"
 #include "UI/StatusInfoWidget.h"
 #include "Interface/InteractionInterface.h"
+#include "Data/AgentCommand.h"
 #include "Subsystem/RimSpaceTimeSubsystem.h"
 #include "UI/CommandMenuWidget.h"
 
@@ -166,7 +169,8 @@ void ARimSpacePlayerController::LeftClick(const FInputActionValue& Value)
 	if (RightClickedCommandTarget)
 	{
 		// 如果当前悬停的 Actor 不是或与 RightClickedCommandTarget 不相等
-		if (!CurrentHoverActor || CurrentHoverActor != RightClickedCommandTarget.GetObject())
+		UObject* TargetObject = RightClickedCommandTarget.GetObject();
+		if (!CurrentHoverActor || CurrentHoverActor != TargetObject)
 		{
 			RightClickedCommandTarget = nullptr; // 清除右键选中状态
 			UpdateCommandMenu(); // 关闭命令菜单
@@ -267,5 +271,75 @@ void ARimSpacePlayerController::UpdateCommandMenu()
 	{
 		CommandMenuWidget->RemoveFromParent();
 		CommandMenuWidget = nullptr;
+	}
+}
+
+void ARimSpacePlayerController::SetCharacterCommand(FString CharacterName, FString CommandType, FString Param1, int32 Param2)
+{
+	UE_LOG(LogTemp, Warning, TEXT("=== Setting Character Command ==="));
+	UE_LOG(LogTemp, Log, TEXT("Character: %s, Command: %s, Param1: %s, Param2: %d"), 
+		*CharacterName, *CommandType, *Param1, Param2);
+	
+	// 获取 CharacterManagerSubsystem
+	UCharacterManagerSubsystem* CharMgr = GetWorld()->GetSubsystem<UCharacterManagerSubsystem>();
+	if (!CharMgr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CharacterManagerSubsystem not found!"));
+		return;
+	}
+	
+	// 构建命令
+	FAgentCommand Command;
+	Command.CharacterName = FName(*CharacterName);
+	
+	// 解析命令类型
+	CommandType = CommandType.ToLower();
+	if (CommandType == TEXT("move"))
+	{
+		Command.CommandType = EAgentCommandType::Move;
+		Command.TargetName = FName(*Param1);
+		UE_LOG(LogTemp, Log, TEXT("Command: Move to %s"), *Param1);
+	}
+	else if (CommandType == TEXT("take"))
+	{
+		Command.CommandType = EAgentCommandType::Take;
+		Command.ParamID = FCString::Atoi(*Param1); // 物品ID
+		Command.Count = Param2;
+		UE_LOG(LogTemp, Log, TEXT("Command: Take ItemID %d, Count %d"), Command.ParamID, Command.Count);
+	}
+	else if (CommandType == TEXT("put"))
+	{
+		Command.CommandType = EAgentCommandType::Put;
+		Command.ParamID = FCString::Atoi(*Param1); // 物品ID
+		Command.Count = Param2;
+		UE_LOG(LogTemp, Log, TEXT("Command: Put ItemID %d, Count %d"), Command.ParamID, Command.Count);
+	}
+	else if (CommandType == TEXT("use"))
+	{
+		Command.CommandType = EAgentCommandType::Use;
+		Command.ParamID = FCString::Atoi(*Param1); // 任务ID或动作ID
+		UE_LOG(LogTemp, Log, TEXT("Command: Use ActionID %d"), Command.ParamID);
+	}
+	else if (CommandType == TEXT("wait"))
+	{
+		Command.CommandType = EAgentCommandType::Wait;
+		Command.Count = Param2 > 0 ? Param2 : 5; // 等待时间（分钟），默认5分钟
+		UE_LOG(LogTemp, Log, TEXT("Command: Wait %d minutes"), Command.Count);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Unknown command type: %s. Valid types: Move, Take, Put, Use, Wait"), *CommandType);
+		return;
+	}
+	
+	// 执行命令
+	bool bSuccess = CharMgr->ExecuteCommand(Command);
+	if (bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("✓ Command executed successfully for %s"), *CharacterName);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("✗ Failed to execute command for %s"), *CharacterName);
 	}
 }

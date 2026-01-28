@@ -136,4 +136,12 @@ protected:
 	int32 WaitRemainingMinutes = 5;
 	
 	int32 ThinkingMinutes = 0;
+	
+	// 绑定的床（用于休息和作为出生点）
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Character")
+	class ABed* AssignedBed = nullptr;
+	
+public:
+	void SetAssignedBed(class ABed* Bed) { AssignedBed = Bed; }
+	class ABed* GetAssignedBed() const { return AssignedBed; }
 };

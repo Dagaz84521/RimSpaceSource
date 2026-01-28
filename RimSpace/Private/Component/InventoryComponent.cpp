@@ -2,8 +2,7 @@
 
 
 #include "Component/InventoryComponent.h"
-
-#include "Data/ItemData.h"
+#include "Data/ItemInfo.h"
 #include "GameInstance/RimSpaceGameInstance.h"
 
 // Sets default values for this component's properties
@@ -45,7 +44,7 @@ FString UInventoryComponent::GetInventoryInfo() const
 		if (Stack.Count <= 0)
 			continue;
 
-		const UItemData* ItemData = GI->GetItemData(Stack.ItemID);
+		const FItem* ItemData = GI->GetItemData(Stack.ItemID);
 		if (!ItemData)
 			continue;
 
@@ -79,7 +78,7 @@ bool UInventoryComponent::AddItem(const FItemStack& Item)
 		return false;
 	}
 
-	const UItemData* ItemData = GI->GetItemData(Item.ItemID);
+	const FItem* ItemData = GI->GetItemData(Item.ItemID);
 	if (!ItemData)
 	{
 		UE_LOG(LogTemp, Error, TEXT("AddItem failed: ItemData not found for ItemID=%d. Did you configure AllItems in GameInstance?"), Item.ItemID);
@@ -114,7 +113,7 @@ bool UInventoryComponent::RemoveItem(const FItemStack& Item)
 	if (!GI)
 		return false;
 
-	const UItemData* ItemData = GI->GetItemData(Item.ItemID);
+	const FItem* ItemData = GI->GetItemData(Item.ItemID);
 	if (!ItemData)
 		return false;
 
@@ -150,7 +149,7 @@ bool UInventoryComponent::CheckItemIsAccepted(const FItemStack& Item)
 		return false;
 	}
 	
-	const UItemData* ItemData = GI->GetItemData(Item.ItemID);
+	const FItem* ItemData = GI->GetItemData(Item.ItemID);
 	if (!ItemData)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("CheckItemIsAccepted: ItemData not found for ItemID=%d"), Item.ItemID);
@@ -188,7 +187,7 @@ TSharedPtr<FJsonObject> UInventoryComponent::GetInventoryDataAsJson() const
 		ItemObject->SetNumberField(TEXT("id"), Stack.ItemID);
 		// 2. 写入数量
 		ItemObject->SetNumberField(TEXT("count"), Stack.Count);
-		const UItemData* Data = GI->GetItemData(Stack.ItemID);
+		const FItem* Data = GI->GetItemData(Stack.ItemID);
 		if (Data)
 		{
 			ItemObject->SetStringField(TEXT("name"), Data->DisplayName.ToString());

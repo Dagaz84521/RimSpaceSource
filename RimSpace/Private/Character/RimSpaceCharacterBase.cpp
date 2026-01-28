@@ -12,6 +12,7 @@
 #include "Actor/Stove.h"
 #include "Actor/WorkStation.h"
 #include "Data/AgentCommand.h"
+#include "Data/ItemInfo.h"
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "RimSpace/RimSpace.h"
 #include "Subsystem/ActorManagerSubsystem.h"
@@ -273,7 +274,7 @@ bool ARimSpaceCharacterBase::UseFacility(int32 ParamId)
        }
 
        // 2. 获取食物详细数据
-       const UItemData* FoodData = GI ? GI->GetItemData(FoodID) : nullptr;
+       const FItem* FoodData = GI ? GI->GetItemData(FoodID) : nullptr;
        if (!FoodData) return false;
 
        // 3. 尝试从背包扣除 1 个食物
@@ -329,7 +330,7 @@ int32 ARimSpaceCharacterBase::FindFoodInInventory() const
 	// 遍历背包寻找第一个 bIsFood 为 true 的物品
 	for (const FItemStack& Stack : CarriedItems->GetAllItems())
 	{
-		const UItemData* Data = GI->GetItemData(Stack.ItemID);
+		const FItem* Data = GI->GetItemData(Stack.ItemID);
 		if (Data && Data->bIsFood)
 		{
 			return Stack.ItemID;
@@ -515,9 +516,20 @@ bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)
 	switch (Command.CommandType)
 	{
 	case EAgentCommandType::Move:
-		MoveTo(Command.TargetName);
-		SetActionState(ECharacterActionState::Moving);
-		return true;
+		// Move指令：开始移动，但不立即请求下一个指令
+		// 等待OnMoveCompleted回调后再请求
+		bResult = MoveTo(Command.TargetName);
+		if (bResult)
+		{
+			SetActionState(ECharacterActionState::Moving);
+		}
+		else
+		{
+			// 移动失败，立即请求下一个指令
+			UE_LOG(LogTemp, Warning, TEXT("Move command failed for %s"), *CharacterName.ToString());
+			FinishCommandAndRequestNext();
+		}
+		return bResult;
 	case EAgentCommandType::Take:
 		bResult = TakeItem(Command.ParamID, Command.Count);
 		FinishCommandAndRequestNext();
@@ -560,8 +572,16 @@ void ARimSpaceCharacterBase::FinishCommandAndRequestNext()
 {
 	// 防止在游戏开始初始化等情况下误触发
 	if (!GetWorld()) return;
+	
+	// 检查游戏是否暂停
+	if (GetWorld()->IsPaused())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Character %s: Game is paused, not requesting next command"), *CharacterName.ToString());
+		SetActionState(ECharacterActionState::Idle);
+		return;
+	}
+	
 	SetActionState(ECharacterActionState::Thinking);
-
 
 	UE_LOG(LogTemp, Log, TEXT("Character %s finished task. Requesting next..."), *CharacterName.ToString());
 	if (ULLMCommunicationSubsystem* LLMSubsystem = GetGameInstance()->GetSubsystem<ULLMCommunicationSubsystem>())

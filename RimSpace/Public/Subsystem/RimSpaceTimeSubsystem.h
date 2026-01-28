@@ -21,7 +21,10 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 	virtual void Tick(float DeltaTime) override;
-	bool IsTickable() const override { return true; }
+	virtual bool IsTickable() const override { return true; }
+	virtual bool IsTickableWhenPaused() const override { return false; }
+	virtual bool IsTickableInEditor() const override { return false; }
+	virtual UWorld* GetTickableGameObjectWorld() const override { return GetWorld(); }
 	virtual TStatId GetStatId() const override;
 
 	UFUNCTION(BlueprintCallable)
