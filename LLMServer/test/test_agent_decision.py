@@ -10,7 +10,7 @@ from pathlib import Path
 
 # ==================== 配置 ====================
 SERVER_URL = "http://127.0.0.1:5000"
-LOG_FILE_PATH = "Log/ServerReceive/InstructionRequest_Chef_20260128_163229.json"
+LOG_FILE_PATH = "Log/ServerReceive/InstructionRequest_Farmer_20260128_163229.json"
 
 
 # ==================== 数据加载 ====================

@@ -32,44 +32,51 @@ def perceive_environment_tasks(environment_data):
         actors = list(actors.values()) # 如果是 {"ActorName": {...}} 的形式
     
     # 遍历所有 Actor
-    for actor in actors:
-        # 提取关键字段（使用 .get 防止报错）
-        actor_name = actor.get("ActorName", "Unknown")
-        actor_type = actor.get("ActorType", "")
+    # for actor in actors:
+    #     # 提取关键字段（使用 .get 防止报错）
+    #     actor_name = actor.get("ActorName", "Unknown")
+    #     actor_type = actor.get("ActorType", "")
         
-        # === 硬编码逻辑：检测培养舱状态 ===
-        # 检查是否是培养舱
-        if "CultivateChamber" in actor_type:
-            phase = actor.get("CultivatePhase", "")
-            target_crop = actor.get("TargetCultivateType", "")
-            has_worker = actor.get("HasWorker", False)
+    #     # === 硬编码逻辑：检测培养舱状态 ===
+    #     # 检查是否是培养舱
+    #     if "CultivateChamber" in actor_type:
+    #         phase = actor.get("CultivatePhase", "")
+    #         target_crop = actor.get("TargetCultivateType", "")
+    #         has_worker = actor.get("HasWorker", False)
             
-            # 核心判断：处于“等待种植”且“没有工人”
-            if "ECP_WaitingToPlant" in phase and not has_worker:
+    #         # 核心判断：处于“等待种植”且“没有工人”
+    #         if "ECP_WaitingToPlant" in phase and not has_worker:
                 
-                # 解析作物类型，映射为 TaskID (参考 Task.json)
-                task_id = 0
-                crop_name = "Unknown"
+    #             # 解析作物类型，映射为 TaskID (参考 Task.json)
+    #             task_id = 0
+    #             crop_name = "Unknown"
                 
-                if "ECT_Cotton" in target_crop:
-                    task_id = 1001 # 种植棉花
-                    crop_name = "Cotton"
-                elif "ECT_Corn" in target_crop:
-                    task_id = 1002 # 种植玉米
-                    crop_name = "Corn"
+    #             if "ECT_Cotton" in target_crop:
+    #                 task_id = 1001 # 种植棉花
+    #                 crop_name = "Cotton"
+    #             elif "ECT_Corn" in target_crop:
+    #                 task_id = 1002 # 种植玉米
+    #                 crop_name = "Corn"
                 
-                if task_id > 0:
-                    # 生成一个虚拟的黑板任务
-                    virtual_task = {
-                        "TaskID": task_id,
-                        "TaskName": f"Plant {crop_name} at {actor_name}", # 给 LLM 看的自然语言
-                        "TaskType": "Plant",
-                        "TargetName": actor_name, # 重要：告诉 Agent 去哪里
-                        "Priority": "High" # 既然设定了种植，优先级通常较高
-                    }
-                    generated_tasks.append(virtual_task)
-                    print(f"[感知层] 检测到种植需求: {virtual_task['TaskName']}")
-
+    #             if task_id > 0:
+    #                 # 生成一个虚拟的黑板任务
+    #                 virtual_task = {
+    #                     "TaskID": task_id,
+    #                     "TaskName": f"Plant {crop_name} at {actor_name}", # 给 LLM 看的自然语言
+    #                     "TaskType": "Plant",
+    #                     "TargetName": actor_name, # 重要：告诉 Agent 去哪里
+    #                     "Priority": "High" # 既然设定了种植，优先级通常较高
+    #                 }
+    #                 generated_tasks.append(virtual_task)
+    #                 print(f"[感知层] 检测到种植需求: {virtual_task['TaskName']}")
+    virtual_task = {
+        "TaskID": 1,
+        "TaskName": "Transport 50 cotton to WorkStation",
+        "TaskType": "Transport",
+        "TargetName": "WorkStation",
+        "Priority": "Low"
+    }
+    generated_tasks.append(virtual_task)
     return generated_tasks
 
 
