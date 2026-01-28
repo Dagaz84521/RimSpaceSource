@@ -10,7 +10,7 @@ from pathlib import Path
 
 # ==================== 配置 ====================
 SERVER_URL = "http://127.0.0.1:5000"
-LOG_FILE_PATH = "Log/ServerReceive/InstructionRequest_Farmer_20260128_163229.json"
+LOG_FILE_PATH = "Log/ServerReceive/InstructionRequest_Chef_20260128_163229.json"
 
 
 # ==================== 数据加载 ====================
@@ -34,7 +34,7 @@ def load_builtin_test_data():
     """内置的测试数据（备用）"""
     return {
         "RequestType": "GetInstruction",
-        "TargetAgent": "Farmer",
+        "TargetAgent": "Chef",
         "GameTime": "Day 1  06:05",
         "Environment": {
             "Actors": [

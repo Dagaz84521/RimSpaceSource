@@ -36,3 +36,4 @@ class LLMClient:
         except Exception as e:
             print(f"[LLM Error] 解析失败: {e}")
             return {"thought": "Error parsing", "command": "Wait", "target": ""}
+        

@@ -18,6 +18,60 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "Data")
 # 游戏状态缓存
 game_state_cache: Dict = {}
 
+# 一些可能会删除的测试代码
+def perceive_environment_tasks(environment_data):
+    """
+    感知层：扫描环境中的 Actor 状态，自动生成隐式任务并注入到黑板中。
+    解决"游戏还没做任务发布系统"的问题。
+    """
+    generated_tasks = []
+    
+    # 获取环境中的所有 Actor
+    actors = environment_data.get("Actors", [])
+    if isinstance(actors, dict): # 处理一下数据结构可能的不一致（列表或字典）
+        actors = list(actors.values()) # 如果是 {"ActorName": {...}} 的形式
+    
+    # 遍历所有 Actor
+    for actor in actors:
+        # 提取关键字段（使用 .get 防止报错）
+        actor_name = actor.get("ActorName", "Unknown")
+        actor_type = actor.get("ActorType", "")
+        
+        # === 硬编码逻辑：检测培养舱状态 ===
+        # 检查是否是培养舱
+        if "CultivateChamber" in actor_type:
+            phase = actor.get("CultivatePhase", "")
+            target_crop = actor.get("TargetCultivateType", "")
+            has_worker = actor.get("HasWorker", False)
+            
+            # 核心判断：处于“等待种植”且“没有工人”
+            if "ECP_WaitingToPlant" in phase and not has_worker:
+                
+                # 解析作物类型，映射为 TaskID (参考 Task.json)
+                task_id = 0
+                crop_name = "Unknown"
+                
+                if "ECT_Cotton" in target_crop:
+                    task_id = 1001 # 种植棉花
+                    crop_name = "Cotton"
+                elif "ECT_Corn" in target_crop:
+                    task_id = 1002 # 种植玉米
+                    crop_name = "Corn"
+                
+                if task_id > 0:
+                    # 生成一个虚拟的黑板任务
+                    virtual_task = {
+                        "TaskID": task_id,
+                        "TaskName": f"Plant {crop_name} at {actor_name}", # 给 LLM 看的自然语言
+                        "TaskType": "Plant",
+                        "TargetName": actor_name, # 重要：告诉 Agent 去哪里
+                        "Priority": "High" # 既然设定了种植，优先级通常较高
+                    }
+                    generated_tasks.append(virtual_task)
+                    print(f"[感知层] 检测到种植需求: {virtual_task['TaskName']}")
+
+    return generated_tasks
+
 
 # ========== 数据加载辅助函数 ==========
 def load_item_data() -> Dict:
@@ -129,6 +183,24 @@ def get_instruction():
         game_time = data.get("GameTime", "")
         characters = data.get("Characters", {})
         environment = data.get("Environment", {})
+        # ==========================================
+        # 插入点：调用感知层，生成硬编码任务
+        
+        # 1. 提取现有的黑板任务（如果有）
+        blackboard = data.get("Blackboard", {}).get("Tasks", [])
+        
+        # 2. 生成新任务（基于 Actor 状态）
+        auto_tasks = perceive_environment_tasks(environment)
+        
+        # 3. 合并任务
+        if auto_tasks:
+            blackboard.extend(auto_tasks)
+            # 将合并后的黑板写回 data，以便 Agent 能读到
+            if "Blackboard" not in data:
+                data["Blackboard"] = {}
+            data["Blackboard"] = blackboard
+        environment["Blackboard"] = blackboard
+        # ===========================================
         
         print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")
         
@@ -239,3 +311,5 @@ if __name__ == '__main__':
         port=5000,
         debug=True
     )
+
+

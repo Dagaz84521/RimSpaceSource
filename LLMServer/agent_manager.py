@@ -32,9 +32,12 @@ class RimSpaceAgent:
         # 2. 映射社会欲望 (Sense of Duty)
         # 检查黑板上的任务数量
         blackboard = environment_data.get("Blackboard", [])
+        print(f"[黑板任务] {blackboard}")
+
         # 简单逻辑：每个任务增加 20 点压力
         task_count = len(blackboard)
         self.desires["duty"] = min(100, task_count * 20)
+        #print(f"[状态更新] {self.name} - Hunger: {self.desires['hunger']}, Exhaustion: {self.desires['exhaustion']}, Duty: {self.desires['duty']}")
 
     def generate_observation_text(self, environment_data):
         """生成给 LLM 看的自然语言描述"""
