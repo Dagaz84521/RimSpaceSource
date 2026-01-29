@@ -291,20 +291,19 @@ TSharedPtr<FJsonObject> ACultivateChamber::GetActorDataAsJson() const
 	TSharedPtr<FJsonObject> JsonObject = Super::GetActorDataAsJson();
 	
 	// 添加培养仓特有信息
-	
-	// 当前阶段
-	JsonObject->SetStringField(TEXT("CultivatePhase"), UEnum::GetValueAsString(CurrentPhase));
-	
-	// 玩家设定的种植类型
-	JsonObject->SetStringField(TEXT("TargetCultivateType"), UEnum::GetValueAsString(TargetCultivateType));
-	
-	// 当前正在种植的类型
-	JsonObject->SetStringField(TEXT("CurrentCultivateType"), UEnum::GetValueAsString(CurrentCultivateType));
-	
+
+	//将CurrentPhase，TargetCultivateType，CurrentCultivateType封装为CultivateInfo：
+	TSharedPtr<FJsonObject> CultivateInfo = MakeShareable(new FJsonObject);
+	// 种植阶段
+	CultivateInfo->SetStringField(TEXT("CurrentPhase"), UEnum::GetValueAsString(CurrentPhase));
+	// 目标种植类型
+	CultivateInfo->SetStringField(TEXT("TargetCultivateType"), UEnum::GetValueAsString(TargetCultivateType));
+	// 当前种植类型
+	CultivateInfo->SetStringField(TEXT("CurrentCultivateType"), UEnum::GetValueAsString(CurrentCultivateType));
 	// 成长进度
-	JsonObject->SetNumberField(TEXT("GrowthProgress"), GrowthProgress);
-	JsonObject->SetNumberField(TEXT("GrowthMaxProgress"), GrowthMaxProgress);
-	
+	CultivateInfo->SetNumberField(TEXT("GrowthProgress"), GrowthProgress);
+	CultivateInfo->SetNumberField(TEXT("GrowthMaxProgress"), GrowthMaxProgress);
+	JsonObject->SetObjectField(TEXT("CultivateInfo"), CultivateInfo);
 	// 工作进度（种植/收获阶段）
 	JsonObject->SetNumberField(TEXT("WorkProgress"), CurrentWorkProgress);
 	

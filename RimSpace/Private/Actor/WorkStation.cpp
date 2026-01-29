@@ -110,6 +110,18 @@ void AWorkStation::AddTask(int32 TaskID, int32 Quantity)
 	}
 }
 
+TSharedPtr<FJsonObject> AWorkStation::GetActorDataAsJson() const
+{
+	TSharedPtr<FJsonObject> CommonData = Super::GetActorDataAsJson();
+	TSharedPtr<FJsonObject> TaskListObj = MakeShareable(new FJsonObject());
+	for (const auto& Elem : TaskList)
+	{
+		TaskListObj->SetNumberField(FString::FromInt(Elem.Key), Elem.Value);
+	}
+	CommonData->SetObjectField(TEXT("TaskList"), TaskListObj);
+	return CommonData;
+}
+
 void AWorkStation::SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID)
 {
 	CurrentWorker = NewWorker;

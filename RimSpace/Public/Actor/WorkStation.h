@@ -30,6 +30,8 @@ public:
 	
 	// 配置初始化方法
 	void AddTask(int32 TaskID, int32 Quantity);
+
+	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const override;
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
 	TObjectPtr<class UInventoryComponent> Inventory;

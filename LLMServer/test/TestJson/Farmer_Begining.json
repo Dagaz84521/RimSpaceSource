@@ -1,0 +1,167 @@
+{
+  "RequestType": "GetInstruction",
+  "TargetAgent": "Farmer",
+  "GameTime": "Day 1  06:05",
+  "Environment": {
+    "Actors": [
+      {
+        "ActorName": "CultivateChamber_2",
+        "ActorType": "EInteractionType::EAT_CultivateChamber",
+        "Inventory": {},
+        "CultivateInfo": {
+          "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
+          "TargetCultivateType": "ECultivateType::ECT_Cotton",
+          "CurrentCultivateType": "ECultivateType::ECT_None",
+          "GrowthProgress": 0,
+          "GrowthMaxProgress": 24
+        },
+        "WorkProgress": 0,
+        "WorkloadMax": 10,
+        "HasWorker": false
+      },
+      {
+        "ActorName": "Bed_2",
+        "ActorType": "EInteractionType::EAT_Bed"
+      },
+      {
+        "ActorName": "CultivateChamber_3",
+        "ActorType": "EInteractionType::EAT_CultivateChamber",
+        "Inventory": {},
+        "CultivateInfo": {
+          "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
+          "TargetCultivateType": "ECultivateType::ECT_Corn",
+          "CurrentCultivateType": "ECultivateType::ECT_None",
+          "GrowthProgress": 0,
+          "GrowthMaxProgress": 24
+        },
+        "WorkProgress": 0,
+        "WorkloadMax": 10,
+        "HasWorker": false
+      },
+      {
+        "ActorName": "Bed_3",
+        "ActorType": "EInteractionType::EAT_Bed"
+      },
+      {
+        "ActorName": "CultivateChamber_1",
+        "ActorType": "EInteractionType::EAT_CultivateChamber",
+        "Inventory": {},
+        "CultivateInfo": {
+          "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
+          "TargetCultivateType": "ECultivateType::ECT_Cotton",
+          "CurrentCultivateType": "ECultivateType::ECT_None",
+          "GrowthProgress": 0,
+          "GrowthMaxProgress": 24
+        },
+        "WorkProgress": 0,
+        "WorkloadMax": 10,
+        "HasWorker": false
+      },
+      {
+        "ActorName": "Stove",
+        "ActorType": "EInteractionType::EAT_Stove",
+        "Inventory": {}
+      },
+      {
+        "ActorName": "WorkStation",
+        "ActorType": "EInteractionType::EAT_WorkStation",
+        "Inventory": {},
+        "TaskList": {
+          "2001": 10
+        }
+      },
+      {
+        "ActorName": "Bed_1",
+        "ActorType": "EInteractionType::EAT_Bed"
+      },
+      {
+        "ActorName": "Table",
+        "ActorType": "EInteractionType::EAT_Table"
+      },
+      {
+        "ActorName": "Storage",
+        "ActorType": "EInteractionType::EAT_None",
+        "Inventory": {
+          "1001": {
+            "count": 10,
+            "name": "棉花"
+          },
+          "1002": {
+            "count": 50,
+            "name": "玉米"
+          }
+        }
+      },
+      {
+        "ActorName": "CultivateChamber_4",
+        "ActorType": "EInteractionType::EAT_CultivateChamber",
+        "Inventory": {},
+        "CultivateInfo": {
+          "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
+          "TargetCultivateType": "ECultivateType::ECT_Corn",
+          "CurrentCultivateType": "ECultivateType::ECT_None",
+          "GrowthProgress": 0,
+          "GrowthMaxProgress": 24
+        },
+        "WorkProgress": 0,
+        "WorkloadMax": 10,
+        "HasWorker": false
+      }
+    ]
+  },
+  "Characters": {
+    "Characters": [
+      {
+        "CharacterName": "Farmer",
+        "CurrentLocation": "None",
+        "ActionState": "ECharacterActionState::Thinking",
+        "Inventory": {},
+        "CharacterStats": {
+          "Hunger": 99.74998474121094,
+          "MaxHunger": 100,
+          "Energy": 99.74998474121094,
+          "MaxEnergy": 100
+        },
+        "CharacterSkills": {
+          "CanCook": false,
+          "CanFarm": true,
+          "CanCraft": false
+        }
+      },
+      {
+        "CharacterName": "Crafter",
+        "CurrentLocation": "None",
+        "ActionState": "ECharacterActionState::Waiting",
+        "Inventory": {},
+        "CharacterStats": {
+          "Hunger": 99.79998779296875,
+          "MaxHunger": 100,
+          "Energy": 99.79998779296875,
+          "MaxEnergy": 100
+        },
+        "CharacterSkills": {
+          "CanCook": false,
+          "CanFarm": false,
+          "CanCraft": true
+        }
+      },
+      {
+        "CharacterName": "Chef",
+        "CurrentLocation": "None",
+        "ActionState": "ECharacterActionState::Waiting",
+        "Inventory": {},
+        "CharacterStats": {
+          "Hunger": 99.79998779296875,
+          "MaxHunger": 100,
+          "Energy": 99.79998779296875,
+          "MaxEnergy": 100
+        },
+        "CharacterSkills": {
+          "CanCook": true,
+          "CanFarm": false,
+          "CanCraft": false
+        }
+      }
+    ]
+  }
+}

@@ -175,29 +175,37 @@ int32 UInventoryComponent::GetItemCount(int32 ItemID) const
 
 TSharedPtr<FJsonObject> UInventoryComponent::GetInventoryDataAsJson() const
 {
-	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
-	TArray<TSharedPtr<FJsonValue>> ItemsArray;
+	TSharedPtr<FJsonObject> RootObj = MakeShareable(new FJsonObject());
+	// 改用 Object 存储，Key 是物品 ID 的字符串
+	TSharedPtr<FJsonObject> ItemsMapObj = MakeShareable(new FJsonObject());
+
 	auto* GI = Cast<URimSpaceGameInstance>(GetWorld()->GetGameInstance());
-	if (!GI) return JsonObject;
+	if (!GI) return RootObj;
+
 	for (const FItemStack& Stack : Items)
 	{
 		if (Stack.Count <= 0) continue;
-		TSharedPtr<FJsonObject> ItemObject = MakeShareable(new FJsonObject());
-		// 1. 写入 ID (保留 ID 给程序逻辑用，以防万一)
-		ItemObject->SetNumberField(TEXT("id"), Stack.ItemID);
-		// 2. 写入数量
-		ItemObject->SetNumberField(TEXT("count"), Stack.Count);
+
+		TSharedPtr<FJsonObject> ItemDetailObj = MakeShareable(new FJsonObject());
+        
+		// 写入数量
+		ItemDetailObj->SetNumberField(TEXT("count"), Stack.Count);
+
+		// 写入名称（对 LLM 非常重要）
 		const FItem* Data = GI->GetItemData(Stack.ItemID);
 		if (Data)
 		{
-			ItemObject->SetStringField(TEXT("name"), Data->DisplayName.ToString());
+			ItemDetailObj->SetStringField(TEXT("name"), Data->DisplayName.ToString());
 		}
 		else
 		{
-			ItemObject->SetStringField(TEXT("name"), TEXT("UnknownItem"));
+			ItemDetailObj->SetStringField(TEXT("name"), TEXT("UnknownItem"));
 		}
-		ItemsArray.Add(MakeShareable(new FJsonValueObject(ItemObject)));
+
+		// 以 ItemID 作为 Key 存入 Map
+		ItemsMapObj->SetObjectField(FString::FromInt(Stack.ItemID), ItemDetailObj);
 	}
-	JsonObject->SetArrayField(TEXT("items"), ItemsArray);
-	return JsonObject;
+
+	// 注意：这里为了保持 Python 解析方便，直接返回这个 Map
+	return ItemsMapObj;
 }
