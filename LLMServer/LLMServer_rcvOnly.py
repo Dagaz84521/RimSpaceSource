@@ -24,15 +24,16 @@ MAX_HISTORY_SIZE = 100
 
 
 def log_to_file(log_type: str, data: Dict):
-    """将接收到的数据记录到文件"""
+    """将接收到的数据记录到以时间戳为名的文件夹中"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{log_type}_{timestamp}.json"
-    filepath = os.path.join(LOG_DIR, filename)
-    
+    folder_path = os.path.join(LOG_DIR, timestamp)
+    os.makedirs(folder_path, exist_ok=True)
+    filename = f"{log_type}.json"
+    filepath = os.path.join(folder_path, filename)
     try:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"[日志] 已保存到 {filename}")
+        print(f"[日志] 已保存到 {os.path.relpath(filepath, LOG_DIR)}")
     except Exception as e:
         print(f"[错误] 保存日志失败: {e}")
 

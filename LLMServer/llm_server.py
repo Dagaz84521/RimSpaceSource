@@ -7,7 +7,10 @@ from flask_cors import CORS
 import json
 from typing import Dict, Optional
 from agent_manager import RimSpaceAgent
+from blackboard import Blackboard, BlackboardTask, Goal
+from rimspace_enum import EInteractionType, ECultivatePhase
 import os
+import itemid_to_name
 
 app = Flask(__name__)
 CORS(app)
@@ -18,66 +21,80 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "Data")
 # 游戏状态缓存
 game_state_cache: Dict = {}
 
+# 黑板任务管理
+Blackboard_Instance = Blackboard()
+
 # 一些可能会删除的测试代码
 def perceive_environment_tasks(environment_data):
     """
     感知层：扫描环境中的 Actor 状态，自动生成隐式任务并注入到黑板中。
-    解决"游戏还没做任务发布系统"的问题。
     """
-    generated_tasks = []
     
     # 获取环境中的所有 Actor
     actors = environment_data.get("Actors", [])
     if isinstance(actors, dict): # 处理一下数据结构可能的不一致（列表或字典）
         actors = list(actors.values()) # 如果是 {"ActorName": {...}} 的形式
-    
-    # 遍历所有 Actor
-    # for actor in actors:
-    #     # 提取关键字段（使用 .get 防止报错）
-    #     actor_name = actor.get("ActorName", "Unknown")
-    #     actor_type = actor.get("ActorType", "")
-        
-    #     # === 硬编码逻辑：检测培养舱状态 ===
-    #     # 检查是否是培养舱
-    #     if "CultivateChamber" in actor_type:
-    #         phase = actor.get("CultivatePhase", "")
-    #         target_crop = actor.get("TargetCultivateType", "")
-    #         has_worker = actor.get("HasWorker", False)
-            
-    #         # 核心判断：处于“等待种植”且“没有工人”
-    #         if "ECP_WaitingToPlant" in phase and not has_worker:
-                
-    #             # 解析作物类型，映射为 TaskID (参考 Task.json)
-    #             task_id = 0
-    #             crop_name = "Unknown"
-                
-    #             if "ECT_Cotton" in target_crop:
-    #                 task_id = 1001 # 种植棉花
-    #                 crop_name = "Cotton"
-    #             elif "ECT_Corn" in target_crop:
-    #                 task_id = 1002 # 种植玉米
-    #                 crop_name = "Corn"
-                
-    #             if task_id > 0:
-    #                 # 生成一个虚拟的黑板任务
-    #                 virtual_task = {
-    #                     "TaskID": task_id,
-    #                     "TaskName": f"Plant {crop_name} at {actor_name}", # 给 LLM 看的自然语言
-    #                     "TaskType": "Plant",
-    #                     "TargetName": actor_name, # 重要：告诉 Agent 去哪里
-    #                     "Priority": "High" # 既然设定了种植，优先级通常较高
-    #                 }
-    #                 generated_tasks.append(virtual_task)
-    #                 print(f"[感知层] 检测到种植需求: {virtual_task['TaskName']}")
-    virtual_task = {
-        "TaskID": 1,
-        "TaskName": "Transport 50 cotton to WorkStation",
-        "TaskType": "Transport",
-        "TargetName": "WorkStation",
-        "Priority": "Low"
-    }
-    generated_tasks.append(virtual_task)
-    return generated_tasks
+    for actor in actors:
+        actor_name = actor.get("ActorName", "")
+        actor_type = actor.get("ActorType", "")
+        print(f"[感知] 处理 Actor: {actor_name} (类型: {actor_type})")
+        if actor_type == EInteractionType.CultivateChamber.value:
+            # 检查培养舱的状态
+            cultivate_info = actor.get("CultivateInfo", {})
+            cultivate_phase = cultivate_info.get("CurrentPhase", "")
+            if cultivate_phase == ECultivatePhase.WaitingToPlant.value:
+                cultivate_type = cultivate_info.get("TargetCultivateType", "")
+                cultivate_type_str = cultivate_type.replace("ECultivateType::ECT_", "")
+                goal = Goal(
+                    target_actor=actor_name,
+                    property_type="CultivateInfo",
+                    key="CurrentPhase",
+                    operator="==",
+                    value=ECultivatePhase.Planting.value
+                )
+                task = BlackboardTask(
+                    description=f"Plant {cultivate_type_str} in {actor_name}",
+                    goal = goal,
+                    required_skill = "canFarm"
+                )
+                Blackboard_Instance.post_task(task)
+            elif cultivate_phase == ECultivatePhase.ReadyToHarvest.value:
+                cultivate_type = cultivate_info.get("CurrentCultivateType", "")
+                cultivate_type_str = cultivate_type.replace("ECultivateType::ECT_", "")
+                goal = Goal(
+                    target_actor=actor_name,
+                    property_type="CultivateInfo",
+                    key="CurrentPhase",
+                    operator="==",
+                    value=ECultivatePhase.Harvesting.value
+                )
+                task = BlackboardTask(
+                    description=f"Harvest {cultivate_type_str} from {actor_name}",
+                    goal = goal,
+                    required_skill = "canFarm"
+                )
+                Blackboard_Instance.post_task(task)
+        elif actor_type == EInteractionType.WorkStation.value:
+            task_list = actor.get("TaskList", {})
+            for task_id, count in task_list.items():
+
+                goal = Goal(
+                    target_actor=actor_name,
+                    property_type="TaskList",
+                    key=task_id,
+                    operator="<=",
+                    value=0
+                )
+                task = BlackboardTask(
+                    description=f"Make {count}× {itemid_to_name.get_item_name(task_id)} at {actor_name}",
+                    goal = goal,
+                    required_skill = "canCraft"
+                )
+                Blackboard_Instance.post_task(task)
+
+def get_blackboard() -> list:
+    """获取当前黑板上的所有任务"""
+    return Blackboard_Instance
 
 
 # ========== 数据加载辅助函数 ==========

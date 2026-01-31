@@ -493,11 +493,20 @@ TSharedPtr<FJsonObject> ARimSpaceCharacterBase::GetActorDataAsJson() const
 	StatsObject->SetNumberField("MaxEnergy", CharacterStats.MaxEnergy);
 	JsonObject->SetObjectField("CharacterStats", StatsObject);
 
-	TSharedPtr<FJsonObject> SkillsObject = MakeShareable(new FJsonObject);
-	SkillsObject->SetBoolField("CanCook", CharacterSkills.bCanCook);
-	SkillsObject->SetBoolField("CanFarm", CharacterSkills.bCanFarm);
-	SkillsObject->SetBoolField("CanCraft", CharacterSkills.bCanCraft);
-	JsonObject->SetObjectField("CharacterSkills", SkillsObject);
+	TArray<TSharedPtr<FJsonValue>> SkillsArray;
+	if (CharacterSkills.bCanCook) 
+	{
+		SkillsArray.Add(MakeShareable(new FJsonValueString("CanCook")));
+	}
+	if (CharacterSkills.bCanFarm) 
+	{
+		SkillsArray.Add(MakeShareable(new FJsonValueString("CanFarm")));
+	}
+	if (CharacterSkills.bCanCraft) 
+	{
+		SkillsArray.Add(MakeShareable(new FJsonValueString("CanCraft")));
+	}
+	JsonObject->SetArrayField("CharacterSkills", SkillsArray);
 	
 	return JsonObject;
 }

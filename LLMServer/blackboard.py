@@ -59,11 +59,12 @@ class TaskStatus(Enum):
 
 
 class BlackboardTask:
-    def __init__ (self, description: str, goal: Goal, priority: int = 1):
+    def __init__ (self, description: str, goal: Goal, priority: int = 1, required_skill: Optional[str] = None):
         self.task_id = str(uuid.uuid4())
         self.description = description
         self.goal = goal
         self.priority = priority
+        self.required_skill = None
     
     def is_active(self, game_state: Dict) -> bool:
         return not self.goal.is_satisfied(game_state)
@@ -71,10 +72,8 @@ class BlackboardTask:
     def to_dict(self):
         return {
             "id": self.task_id,
-            "type": self.task_type,
             "desc": self.description,
             "prio": self.priority,
-            "params": self.params
             # 不传 Goal 的细节给 LLM，除非需要，通常 LLM 只需要知道 desc 和 params
         }
 class Blackboard:
@@ -84,15 +83,16 @@ class Blackboard:
     def post_task(self, task: BlackboardTask):
         # 避免重复任务
         for t in self.tasks:
-            if (t.task_type == task.task_type and 
-                t.requester == task.requester and 
-                t.params == task.params and 
-                t.status != TaskStatus.COMPLETED):
-                print(f"[Blackboard] 重复任务，忽略: {task.task_type}")
-                return t.task_id
+            g = t.goal
+            if (g.target_actor == task.goal.target_actor and
+                g.property_type == task.goal.property_type and
+                g.key == task.goal.key and
+                g.operator == task.goal.operator and
+                g.value == task.goal.value):
+                print(f"[Blackboard] 任务已存在，跳过添加: {task.description}")
+                return
         self.tasks.append(task)
-        print(f"[Blackboard] 新任务发布: {task.task_type} (Priority: {task.priority})")
-        return task.task_id
+        print(f"[Blackboard] 新任务已添加: {task.description}")
     
     def update(self, game_state: Dict):
         """
@@ -108,20 +108,20 @@ class Blackboard:
                 active_tasks.append(t)
         self.tasks = active_tasks
 
-    def get_tasks(self, task_type: str = None, requester: str = None):
+    def get_tasks(self, agent_info): 
         """
         获取任务列表，可选按任务类型和请求者（角色）筛选。
-        :param task_type: 任务类型（可选）
-        :param requester: 请求者/角色名（可选）
+        :param agent_info: 角色信息，主要是角色的技能，根据角色的技能筛选任务
         :return: 满足条件的任务列表
         """
-        result = []
+        suitable_tasks = []
         for t in self.tasks:
-            if task_type is not None and getattr(t, 'task_type', None) != task_type:
-                continue
-            if requester is not None and getattr(t, 'requester', None) != requester:
-                continue
-            result.append(t)
-        return result
+            if t.required_skill is None or t.required_skill in agent_info.get("Skills", []):
+                suitable_tasks.append(t)
+        return suitable_tasks
+        
+        
+
+        
 
     
