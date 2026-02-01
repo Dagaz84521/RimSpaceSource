@@ -50,7 +50,7 @@ def perceive_environment_tasks(environment_data):
                     property_type="CultivateInfo",
                     key="CurrentPhase",
                     operator="==",
-                    value=ECultivatePhase.Planting.value
+                    value=ECultivatePhase.Growing.value
                 )
                 task = BlackboardTask(
                     description=f"Plant {cultivate_type_str} in {actor_name}",
@@ -66,7 +66,7 @@ def perceive_environment_tasks(environment_data):
                     property_type="CultivateInfo",
                     key="CurrentPhase",
                     operator="==",
-                    value=ECultivatePhase.Harvesting.value
+                    value=ECultivatePhase.WaitingToPlant.value
                 )
                 task = BlackboardTask(
                     description=f"Harvest {cultivate_type_str} from {actor_name}",

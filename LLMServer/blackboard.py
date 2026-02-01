@@ -27,7 +27,7 @@ class Goal:
             return False
         
         # 支持嵌套字典
-        value = prop.get(self.key) if isinstance(prop, dict) and self.key is not None else prop
+        value = prop.get(self.key, 0) if isinstance(prop, dict) and self.key is not None else prop
         # 比较操作
         op = self.operator
         try:
