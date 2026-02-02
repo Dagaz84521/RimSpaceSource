@@ -2,7 +2,7 @@ import os
 
 # LLM 配置
 LLM_API_KEY = os.getenv("LLM_API_KEY", "99b1922f-a206-4aab-9680-048625819b76")
-LLM_MODEL = os.getenv("LLM_MODEL", "ep-20251230111027-fprsp") #
+LLM_MODEL = os.getenv("LLM_MODEL", "ep-20251230111027-fprsp") 
 LLM_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
 # 欲望阈值配置 (0 - 100)
@@ -11,6 +11,12 @@ THRESHOLDS = {
     "FATIGUE_HIGH" : 80, # 疲劳度高于此值时，角色会优先寻找休息
     "DUTY_TRIGGER" : 40  # 责任感高于此值时，角色会优先完成任务
 }
+
+# Data数据路径
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "..", "Data")
+ITEM_DATA_PATH = os.path.join(DATA_DIR, "Item.json")
+TASK_DATA_PATH = os.path.join(DATA_DIR, "Task.json") 
 
 # 系统提示词 (System Prompt)
 # 核心：定义角色如何思考，以及如何权衡欲望
