@@ -46,13 +46,9 @@ class Planner:
                 
             inv = actor.get("Inventory", {})
             if isinstance(inv, dict):
-                item_data = inv.get(str_id)
-                if item_data is not None:
-                    # 兼容两种格式：直接存 count (int) 或存 dict {"count": N}
-                    if isinstance(item_data, int):
-                        total += item_data
-                    elif isinstance(item_data, dict):
-                        total += item_data.get("count", 0)
+                item_count = inv.get(str_id, 0)
+                if isinstance(item_count, int):
+                    total += item_count
         return total
     
     def find_actor_with_item(self, item_id, min_count, environment) -> str:
@@ -65,23 +61,17 @@ class Planner:
             if "Storage" in actor.get("ActorType", ""):
                 inv = actor.get("Inventory", {})
                 if isinstance(inv, dict):
-                    data = inv.get(str_id)
-                    if data is not None:
-                        # 兼容两种格式
-                        count = data if isinstance(data, int) else data.get("count", 0)
-                        if count >= min_count:
-                            return actor.get("ActorName")
+                    count = inv.get(str_id, 0)
+                    if isinstance(count, int) and count >= min_count:
+                        return actor.get("ActorName")
         
         # 其次查找任意容器
         for actor in actors:
             inv = actor.get("Inventory", {})
             if isinstance(inv, dict):
-                data = inv.get(str_id)
-                if data is not None:
-                    # 兼容两种格式
-                    count = data if isinstance(data, int) else data.get("count", 0)
-                    if count >= min_count:
-                        return actor.get("ActorName")
+                count = inv.get(str_id, 0)
+                if isinstance(count, int) and count >= min_count:
+                    return actor.get("ActorName")
         return None
     
     def find_actor_by_type(self, type_suffix, environment) -> str:
@@ -114,7 +104,7 @@ class Planner:
         if not source:
             # 游戏中没有食物，触发系统任务
             # 补充3个食物，根据游戏内设定，刚好满足殖民地所有人的进餐需求
-            self._trigger_system_supply(food_id, 3)
+            self._trigger_system_supply(food_id, 3, "Stove", env)
             return PlanResult(False, [cmd_wait(5)], "No food available. Cooking task posted.")
         plan = []
         plan.append(cmd_move(source))
@@ -168,7 +158,10 @@ class Planner:
         target_facility = self.find_actor_by_type(facility_type, env)
         if not target_facility:
             return PlanResult(False, [cmd_wait(2)], f"No facility of type {facility_type} found.")
+        
         plan = []
+        missing_resources = []  # 收集所有缺失的原料
+        
         for ing in recipe.get("Ingredients", []):
             ing_id = str(ing["ItemID"])
             needed_count = ing["Count"]
@@ -176,27 +169,30 @@ class Planner:
             # 检测全局库存
             total_stock = self.get_total_item_count(ing_id, env)
             
-            # 【系统介入点】如果库存严重不足 (甚至不够做一次)
+            # 【系统介入点】如果库存不足
             if total_stock < needed_count:
+                # 记录缺失原料但不立即返回
+                missing_resources.append((ing_id, needed_count, self.item_map.get(ing_id, {}).get("ItemName", ing_id)))
                 # 触发系统补货
-                self._trigger_system_supply(ing_id, needed_count * 5) # 比如一次请求生产5份的量
+                self._trigger_system_supply(ing_id, needed_count, target_facility, env)
+            else:
+                # 库存充足，生成搬运指令
+                source = self.find_actor_with_item(ing_id, needed_count, env)
+                if not source:
+                    # 虽然总数够，但在某些不可达的地方？或者逻辑死角
+                    return PlanResult(False, [cmd_wait(5)], f"Could not locate {ing_id} in containers.")
                 
-                item_name = self.item_map.get(ing_id, {}).get("ItemName", ing_id)
-                feedback = f"Resource Missing: {item_name}. System supply task initiated. Please Wait."
-                return PlanResult(False, [cmd_wait(10)], feedback)
+                # 生成搬运指令
+                plan.append(cmd_move(source))
+                plan.append(cmd_take(ing_id, needed_count))
+                plan.append(cmd_move(target_facility))
+                plan.append(cmd_put(ing_id, needed_count))
 
-            # 正常规划：寻找最近的原料来源
-            # 注意：这里简化逻辑，假设一次能搬完。如果背包不够，可能需要分批。
-            source = self.find_actor_with_item(ing_id, needed_count, env)
-            if not source:
-                # 虽然总数够，但在某些不可达的地方？或者逻辑死角
-                return PlanResult(False, [cmd_wait(5)], f"Could not locate {ing_id} in containers.")
-            
-            # 生成搬运指令
-            plan.append(cmd_move(source))
-            plan.append(cmd_take(ing_id, needed_count))
-            plan.append(cmd_move(target_facility))
-            plan.append(cmd_put(ing_id, needed_count))
+        # 如果有任何缺失的原料，返回失败并等待
+        if missing_resources:
+            resource_names = ", ".join([name for _, _, name in missing_resources])
+            feedback = f"Resources Missing: {resource_names}. System supply tasks initiated. Please Wait."
+            return PlanResult(False, [cmd_wait(10)], feedback)
 
         # 2. 开始制作
         plan.append(cmd_use(recipe["TaskID"]))
@@ -204,47 +200,109 @@ class Planner:
         return PlanResult(True, plan, f"Crafting {product_name} sequence started.")
     
 
-    def _trigger_system_supply(self, item_id, amount_needed):
+    def _trigger_system_supply(self, item_id, amount_needed, target_facility_name="WorkStation", environment=None):
         """
-        向黑板发布系统级补货任务
+        向黑板发布系统级补货任务 (智能分流版)
+        支持递归检查生产链依赖
         """
+        if environment is None:
+            print("[System] Warning: environment is None in _trigger_system_supply")
+            return
+            
         item_info = self.item_map.get(str(item_id), {})
         item_name = item_info.get("ItemName", f"Item_{item_id}")
         
-        # 1. 检查重复任务
-        existing_tasks = self.blackboard.tasks
-        task_signature = f"System Request: Supply {item_name}"
+        # 1. 检查重复任务 (避免重复发布)
+        existing_tasks = self.blackboard.tasks  # 直接访问 tasks 列表
+        task_signature_produce = f"System Request: Produce {item_name}"
+        task_signature_transport = f"System Request: Transport {item_name}"
+        
         for t in existing_tasks:
-            if task_signature in t.description:
-                # 任务已存在，不重复发布
+            if task_signature_produce in t.description or task_signature_transport in t.description:
                 return
 
-        # 2. 构造目标
-        # Goal: Storage 里该物品数量 >= 需求量
+        # 2. 获取全局库存 (Storage + 所有容器)
+        total_stock = self.get_total_item_count(item_id, environment)
+        
+        # 3. 构造 Goal (无论生产还是搬运，最终目的都是让目标设施里有东西)
         goal = Goal(
-            target_actor="Storage", 
+            target_actor=target_facility_name,  # 直接指向目标设施
             property_type="Inventory",
-            key=f"{item_id}.count",
+            key=str(item_id),
             operator=">=",
             value=amount_needed
         )
 
-        # 3. 决定任务描述和优先级
-        # 简单判定：如果是作物 -> Plant；如果是制品 -> Craft
-        # 这里用简单的 ID 范围判断，你可以根据实际 Item.json 修改
-        is_crop = int(item_id) in [1001, 1002] 
-        
-        action_desc = "Plant/Harvest" if is_crop else "Produce"
-        full_desc = f"{task_signature} ({action_desc})"
-
-        new_task = BlackboardTask(
-            description=full_desc,
-            goal=goal,
-            priority=5, # 必须高优先级，否则卡住生产线
-            required_skill=None 
-        )
+        # 4. 核心分流逻辑
+        if total_stock < amount_needed:
+            # === 分支 A: 生产任务 (Production) ===
+            # 只有当全局缺货时，才发布生产任务
+            
+            # 查找配方以确定所需技能
+            recipe = self.product_to_recipe.get(str(item_id))
+            print(f"[Debug] Looking for recipe of item {item_id}: {'Found' if recipe else 'NOT FOUND'}")
+            
+            if recipe:
+                required_skill_dict = recipe.get("RequiredSkill", {})
+                # 提取技能名 (例如 "CanCraft")
+                skill_name = next(iter(required_skill_dict)) if required_skill_dict else None
+                
+                # 【递归检查】：检查生产该物品所需的所有原料
+                ingredients = recipe.get("Ingredients", [])
+                print(f"[Debug] Item {item_id} has {len(ingredients)} ingredients")
+                
+                for ing in ingredients:
+                    ing_id = str(ing["ItemID"])
+                    ing_count = ing["Count"]
+                    ing_stock = self.get_total_item_count(ing_id, environment)
+                    
+                    print(f"[Debug] Ingredient {ing_id}: need={ing_count}, stock={ing_stock}")
+                    
+                    # 如果原料不足，递归触发原料的生产/搬运任务
+                    if ing_stock < ing_count:  # 直接检查是否不足所需数量
+                        # 获取原料的配方以确定其生产设施
+                        ingredient_recipe = self.product_to_recipe.get(ing_id)
+                        ingredient_target = ingredient_recipe.get("RequiredFacility", "WorkStation") if ingredient_recipe else "WorkStation"
+                        
+                        ing_name = self.item_map.get(ing_id, {}).get("ItemName", f"Item_{ing_id}")
+                        print(f"[System] Recursively triggered supply for ingredient: {ing_name} -> {ingredient_target}")
+                        self._trigger_system_supply(ing_id, ing_count, ingredient_target, environment)
+                    else:
+                        print(f"[Debug] Ingredient {ing_id} is sufficiently stocked.")
+                        self._trigger_system_supply(ing_id, ing_count, target_facility_name, environment)  # 直接触发搬运任务确保原料到位
+            else:
+                skill_name = None
+            
+            full_desc = f"{task_signature_produce} (For {target_facility_name})"
+            
+            new_task = BlackboardTask(
+                description=full_desc,
+                goal=goal,
+                priority=6, # 生产优先级略高
+                required_skill=skill_name # <--- 【关键】: 锁死技能，Chef 只有 CanCook，接不了 CanCraft 的任务
+            )
+            print(f"[System] Auto-posted PRODUCTION task: {full_desc} [Req: {skill_name}]")
+            
+        else:
+            # === 分支 B: 搬运任务 (Logistics) ===
+            # 货是够的，只是没到位
+            full_desc = f"{task_signature_transport} (From Storage to {target_facility_name})"
+            
+            new_task = BlackboardTask(
+                description=full_desc,
+                goal=goal,
+                priority=5,
+                required_skill=None # <--- 【关键】: 不限技能，Chef 可以帮忙搬运
+            )
+            
+            # 【新增】为搬运任务添加元数据，以便 agent_manager 正确调用 _plan_transport
+            new_task.item_id = item_id
+            new_task.source = "Storage"
+            new_task.destination = target_facility_name
+            new_task.count = amount_needed
+            
+            print(f"[System] Auto-posted TRANSPORT task: {full_desc}")
         
         self.blackboard.post_task(new_task)
-        print(f"[System] Auto-posted supply task: {full_desc}")
 
         

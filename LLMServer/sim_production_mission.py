@@ -222,6 +222,36 @@ def build_default_world() -> Dict:
                     "Inventory": {},
                     "CultivateInfo": {
                         "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
+                        "TargetCultivateType": "ECultivateType::ECT_Cotton",
+                        "CurrentCultivateType": "ECultivateType::ECT_None",
+                        "GrowthProgress": 0,
+                        "GrowthMaxProgress": 24,
+                    },
+                    "WorkProgress": 0,
+                    "WorkloadMax": 10,
+                    "HasWorker": False,
+                },
+                {
+                    "ActorName": "CultivateChamber_3",
+                    "ActorType": "EInteractionType::EAT_CultivateChamber",
+                    "Inventory": {},
+                    "CultivateInfo": {
+                        "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
+                        "TargetCultivateType": "ECultivateType::ECT_Corn",
+                        "CurrentCultivateType": "ECultivateType::ECT_None",
+                        "GrowthProgress": 0,
+                        "GrowthMaxProgress": 24,
+                    },
+                    "WorkProgress": 0,
+                    "WorkloadMax": 10,
+                    "HasWorker": False,
+                },
+                {
+                    "ActorName": "CultivateChamber_4",
+                    "ActorType": "EInteractionType::EAT_CultivateChamber",
+                    "Inventory": {},
+                    "CultivateInfo": {
+                        "CurrentPhase": "ECultivatePhase::ECP_WaitingToPlant",
                         "TargetCultivateType": "ECultivateType::ECT_Corn",
                         "CurrentCultivateType": "ECultivateType::ECT_None",
                         "GrowthProgress": 0,
@@ -235,13 +265,37 @@ def build_default_world() -> Dict:
                     "ActorName": "WorkStation",
                     "ActorType": "EInteractionType::EAT_WorkStation",
                     "Inventory": {},
-                    # 目标：生产 1 件衣服（ID 3001）
                     "TaskList": {"3001": 1},
                 },
-                {"ActorName": "Stove", "ActorType": "EInteractionType::EAT_Stove", "Inventory": {}},
-                {"ActorName": "Storage", "ActorType": "EInteractionType::EAT_Storage", "Inventory": {"1001": 10, "2001": 5, "2003": 10}},
-                {"ActorName": "Table", "ActorType": "EInteractionType::EAT_Table"},
-                {"ActorName": "Bed_1", "ActorType": "EInteractionType::EAT_Bed"},
+                {
+                    "ActorName": "Stove",
+                    "ActorType": "EInteractionType::EAT_Stove",
+                    "Inventory": {},
+                },
+                {
+                    "ActorName": "Storage",
+                    "ActorType": "EInteractionType::EAT_None",
+                    "Inventory": {
+                        "1001": 10,
+                        "1002": 50,
+                    },
+                },
+                {
+                    "ActorName": "Table",
+                    "ActorType": "EInteractionType::EAT_Table",
+                },
+                {
+                    "ActorName": "Bed_1",
+                    "ActorType": "EInteractionType::EAT_Bed",
+                },
+                {
+                    "ActorName": "Bed_2",
+                    "ActorType": "EInteractionType::EAT_Bed",
+                },
+                {
+                    "ActorName": "Bed_3",
+                    "ActorType": "EInteractionType::EAT_Bed",
+                },
             ]
         },
         "Characters": {
@@ -252,9 +306,9 @@ def build_default_world() -> Dict:
                     "ActionState": "ECharacterActionState::Thinking",
                     "Inventory": {},
                     "CharacterStats": {
-                        "Hunger": 95.0,
+                        "Hunger": 99.75,
                         "MaxHunger": 100.0,
-                        "Energy": 95.0,
+                        "Energy": 99.75,
                         "MaxEnergy": 100.0,
                     },
                     "CharacterSkills": ["CanFarm"],
@@ -262,12 +316,12 @@ def build_default_world() -> Dict:
                 {
                     "CharacterName": "Crafter",
                     "CurrentLocation": "None",
-                    "ActionState": "ECharacterActionState::Thinking",
+                    "ActionState": "ECharacterActionState::Waiting",
                     "Inventory": {},
                     "CharacterStats": {
-                        "Hunger": 95.0,
+                        "Hunger": 99.8,
                         "MaxHunger": 100.0,
-                        "Energy": 95.0,
+                        "Energy": 99.8,
                         "MaxEnergy": 100.0,
                     },
                     "CharacterSkills": ["CanCraft"],
@@ -275,12 +329,12 @@ def build_default_world() -> Dict:
                 {
                     "CharacterName": "Chef",
                     "CurrentLocation": "None",
-                    "ActionState": "ECharacterActionState::Thinking",
+                    "ActionState": "ECharacterActionState::Waiting",
                     "Inventory": {},
                     "CharacterStats": {
-                        "Hunger": 95.0,
+                        "Hunger": 99.8,
                         "MaxHunger": 100.0,
-                        "Energy": 95.0,
+                        "Energy": 99.8,
                         "MaxEnergy": 100.0,
                     },
                     "CharacterSkills": ["CanCook"],
@@ -319,12 +373,13 @@ def main() -> int:
     print("  Production Mission: Make 1 Clothes (ID: 3001)")
     print("=" * 70)
     print(f"  Agents: {', '.join(agent_list)}")
-    print(f"  Rounds: {args.rounds} (each round = all agents act once)")
+    print(f"  Mode: Interactive (press 'n' + Enter to advance each round)")
     print(f"  Stats degradation per round: {args.degradation}")
     print("=" * 70)
     print()
 
-    for round_num in range(1, args.rounds + 1):
+    round_num = 1
+    while True:
         print(f"\n[===== ROUND {round_num} =====]")
         print(f"Time: {world.time.formatted()}")
         
@@ -363,20 +418,20 @@ def main() -> int:
             print("\n  [World State]:")
             print(json.dumps(snapshot, indent=4))
 
-        # 交互模式：等待用户输入 'n' 继续
-        if args.interactive and round_num < args.rounds:
-            print(f"\n  Press 'n' + Enter to continue to Round {round_num + 1}...", flush=True)
-            while True:
-                user_input = input().strip().lower()
-                if user_input == 'n':
-                    break
-                else:
-                    print("  Please enter 'n' to continue: ", flush=True)
-
-    print("\n" + "=" * 70)
-    print("  Simulation Complete!")
-    print("=" * 70)
-    return 0
+        # 等待用户输入 'n' 继续或其他命令退出
+        print(f"\n  Press 'n' + Enter to continue to Round {round_num + 1}, or 'q' + Enter to quit...", flush=True)
+        while True:
+            user_input = input().strip().lower()
+            if user_input == 'n':
+                round_num += 1
+                break
+            elif user_input == 'q':
+                print("\n" + "=" * 70)
+                print("  Simulation Stopped by User")
+                print("=" * 70)
+                return 0
+            else:
+                print("  Invalid input. Please enter 'n' to continue or 'q' to quit: ", flush=True)
 
 
 if __name__ == "__main__":

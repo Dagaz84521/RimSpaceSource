@@ -111,6 +111,20 @@ class RimSpaceAgent:
 
         # 4. 调用 Planner 进行规划
         # 将 decision_json 直接作为 params 传入
+        
+        # 【新增】如果是 Transport 命令，从任务中补充缺失的参数
+        if command_type == "Transport":
+            # 从黑板中找到相关的搬运任务，提取 item_id, source, destination, count
+            relevant_tasks = self.blackboard.get_tasks(char_data)
+            transport_task = next((t for t in relevant_tasks if "Transport" in t.description), None)
+            
+            if transport_task and hasattr(transport_task, 'item_id'):
+                # 补充参数
+                decision_json["item_id"] = transport_task.item_id
+                decision_json["target_name"] = transport_task.source
+                decision_json["aux_name"] = transport_task.destination
+                decision_json["count"] = transport_task.count
+        
         plan_result = self.planner.generate_plan(self.name, command_type, decision_json, environment_data)
         
         if plan_result.success:

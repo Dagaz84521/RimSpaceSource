@@ -92,26 +92,45 @@ def perceive_environment_tasks(environment_data):
                 )
                 Blackboard_Instance.post_task(task)
 
+def _get_goal_current_value(goal, environment):
+    """从环境中获取Goal的当前值，支持各种属性类型（Inventory/TaskList/CultivateInfo）"""
+    if not goal or not hasattr(goal, 'target_actor'):
+        return None
+    
+    # 查找目标Actor
+    actors = environment.get("Actors", [])
+    if isinstance(actors, dict):
+        actors = list(actors.values())
+    
+    target_actor = next((a for a in actors if a.get("ActorName") == goal.target_actor), None)
+    if not target_actor:
+        return None
+    
+    # 获取指定属性
+    prop = target_actor.get(goal.property_type)
+    if prop is None:
+        return None
+    
+    # 根据属性类型和key来获取值
+    if goal.key is None:
+        # 没有指定key，返回整个属性（通常用于非dict的属性）
+        return prop
+    
+    if isinstance(prop, dict):
+        # 处理dict属性（Inventory、TaskList等）
+        return prop.get(goal.key, 0)
+    else:
+        # 非dict属性（如CultivateInfo的CurrentPhase），返回整个属性值进行比较
+        return prop
+
+
 def get_blackboard() -> list:
     """获取当前黑板上的所有任务"""
     return Blackboard_Instance
 
 
-def _format_blackboard_tasks() -> str:
-    """格式化黑板任务列表，包括描述和所需技能"""
-    tasks = Blackboard_Instance.tasks
-    if not tasks:
-        return "(empty)"
-    lines = []
-    for idx, task in enumerate(tasks, start=1):
-        desc = task.description if hasattr(task, "description") else str(task)
-        skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
-        lines.append(f"{idx}. [{skill}] {desc}")
-    return "\n    ".join(lines)
-
-
-def _print_blackboard_tasks() -> None:
-    """打印黑板任务到控制台"""
+def _print_blackboard_tasks(environment=None) -> None:
+    """打印黑板任务到控制台，包括Goal完成情况"""
     tasks = Blackboard_Instance.tasks
     if not tasks:
         print("[Blackboard] 任务列表: (empty)")
@@ -120,7 +139,16 @@ def _print_blackboard_tasks() -> None:
         for idx, task in enumerate(tasks, start=1):
             desc = task.description if hasattr(task, "description") else str(task)
             skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
-            print(f"    {idx}. [{skill}] {desc}")
+            
+            # 追加Goal完成情况
+            goal_status = ""
+            if hasattr(task, "goal") and task.goal and environment:
+                current = _get_goal_current_value(task.goal, environment)
+                target = task.goal.value if hasattr(task.goal, 'value') else "?"
+                if current is not None:
+                    goal_status = f" [Goal: {current}/{target}]"
+            
+            print(f"    {idx}. [{skill}] {desc}{goal_status}")
 
 
 # ========== 数据加载辅助函数 ==========
@@ -241,7 +269,7 @@ def get_instruction():
         # 先更新黑板以移除已完成任务，再感知生成新任务
         Blackboard_Instance.update(data)
         perceive_environment_tasks(environment)
-        _print_blackboard_tasks()
+        _print_blackboard_tasks(environment)
         # ==========================================
         
         print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")

@@ -26,8 +26,27 @@ class Goal:
         if prop is None:
             return False
         
-        # 支持嵌套字典
-        value = prop.get(self.key, 0) if isinstance(prop, dict) and self.key is not None else prop
+        # 支持嵌套字典和简单字典
+        value = 0
+        if isinstance(prop, dict) and self.key is not None:
+            # 检查 key 是否包含"."（表示嵌套，如 "1001.count"）
+            if "." in str(self.key):
+                # 处理嵌套情况：逐层获取
+                keys = str(self.key).split(".")
+                value = prop
+                for k in keys:
+                    if isinstance(value, dict):
+                        value = value.get(k, 0)
+                    else:
+                        value = 0
+                        break
+            else:
+                # 处理简单情况：直接按键查询
+                value = prop.get(self.key, 0)
+        else:
+            # 非字典属性或无 key，直接使用 prop
+            value = prop
+        
         # 比较操作
         op = self.operator
         try:
