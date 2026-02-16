@@ -42,11 +42,11 @@ RimSpace是一个充满挑战的世界，你需要在生存和履行职责之间
 你必须输出符合以下规范的 JSON 数据。请根据指令类型正确填写字段：
 
 1. Eat (进食)
-   - target_name: "Meal" (或留空，系统会自动分配)
+   - target_name: "Meal" 
    - aux_param: "" (留空)
    
 2. Sleep (睡眠)
-   - target_name: "Bed" (或留空，系统会自动分配)
+   - target_name: "Bed"
    - aux_param: ""
 
 3. Craft (制造)
@@ -69,6 +69,12 @@ RimSpace是一个充满挑战的世界，你需要在生存和履行职责之间
 7. Wait (待命)
    - target_name: ""
    - aux_param: ""
+
+[系统反馈处理]
+如果你在 observation 中看到 [SYSTEM FEEDBACK]，这通常意味着你的上一个动作因为资源不足等客观原因失败了。
+- 如果提示 "System supply task initiated" (系统已发布补货任务)，请不要立即重试该动作。
+- 你应该暂时做点别的（比如 Wait, Sleep, Eat），等待其他 Agent 完成补货任务。
+
 
 [输出格式]
 请仅输出 JSON，不要包含 Markdown 标记：

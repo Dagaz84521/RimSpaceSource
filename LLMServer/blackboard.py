@@ -64,7 +64,7 @@ class BlackboardTask:
         self.description = description
         self.goal = goal
         self.priority = priority
-        self.required_skill = None
+        self.required_skill = required_skill
     
     def is_active(self, game_state: Dict) -> bool:
         return not self.goal.is_satisfied(game_state)
@@ -114,9 +114,13 @@ class Blackboard:
         :param agent_info: 角色信息，主要是角色的技能，根据角色的技能筛选任务
         :return: 满足条件的任务列表
         """
+        # 提取角色技能 (兼容 Skills 和 CharacterSkills，处理大小写)
+        raw_skills = agent_info.get("Skills", []) or agent_info.get("CharacterSkills", [])
+        agent_skills = {s.lower() for s in raw_skills}
+
         suitable_tasks = []
         for t in self.tasks:
-            if t.required_skill is None or t.required_skill in agent_info.get("Skills", []):
+            if t.required_skill is None or t.required_skill.lower() in agent_skills:
                 suitable_tasks.append(t)
         return suitable_tasks
         

@@ -47,8 +47,12 @@ class Planner:
             inv = actor.get("Inventory", {})
             if isinstance(inv, dict):
                 item_data = inv.get(str_id)
-                if item_data:
-                    total += item_data.get("count", 0)
+                if item_data is not None:
+                    # 兼容两种格式：直接存 count (int) 或存 dict {"count": N}
+                    if isinstance(item_data, int):
+                        total += item_data
+                    elif isinstance(item_data, dict):
+                        total += item_data.get("count", 0)
         return total
     
     def find_actor_with_item(self, item_id, min_count, environment) -> str:
@@ -62,16 +66,22 @@ class Planner:
                 inv = actor.get("Inventory", {})
                 if isinstance(inv, dict):
                     data = inv.get(str_id)
-                    if data and data.get("count", 0) >= min_count:
-                        return actor.get("ActorName")
+                    if data is not None:
+                        # 兼容两种格式
+                        count = data if isinstance(data, int) else data.get("count", 0)
+                        if count >= min_count:
+                            return actor.get("ActorName")
         
         # 其次查找任意容器
         for actor in actors:
             inv = actor.get("Inventory", {})
             if isinstance(inv, dict):
                 data = inv.get(str_id)
-                if data and data.get("count", 0) >= min_count:
-                    return actor.get("ActorName")
+                if data is not None:
+                    # 兼容两种格式
+                    count = data if isinstance(data, int) else data.get("count", 0)
+                    if count >= min_count:
+                        return actor.get("ActorName")
         return None
     
     def find_actor_by_type(self, type_suffix, environment) -> str:
@@ -202,7 +212,7 @@ class Planner:
         item_name = item_info.get("ItemName", f"Item_{item_id}")
         
         # 1. 检查重复任务
-        existing_tasks = self.blackboard.get_tasks()
+        existing_tasks = self.blackboard.tasks
         task_signature = f"System Request: Supply {item_name}"
         for t in existing_tasks:
             if task_signature in t.description:

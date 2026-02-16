@@ -97,6 +97,32 @@ def get_blackboard() -> list:
     return Blackboard_Instance
 
 
+def _format_blackboard_tasks() -> str:
+    """格式化黑板任务列表，包括描述和所需技能"""
+    tasks = Blackboard_Instance.tasks
+    if not tasks:
+        return "(empty)"
+    lines = []
+    for idx, task in enumerate(tasks, start=1):
+        desc = task.description if hasattr(task, "description") else str(task)
+        skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
+        lines.append(f"{idx}. [{skill}] {desc}")
+    return "\n    ".join(lines)
+
+
+def _print_blackboard_tasks() -> None:
+    """打印黑板任务到控制台"""
+    tasks = Blackboard_Instance.tasks
+    if not tasks:
+        print("[Blackboard] 任务列表: (empty)")
+    else:
+        print("[Blackboard] 任务列表:")
+        for idx, task in enumerate(tasks, start=1):
+            desc = task.description if hasattr(task, "description") else str(task)
+            skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
+            print(f"    {idx}. [{skill}] {desc}")
+
+
 # ========== 数据加载辅助函数 ==========
 def load_item_data() -> Dict:
     """加载物品数据"""
@@ -205,26 +231,18 @@ def get_instruction():
         
         # 获取游戏状态
         game_time = data.get("GameTime", "")
-        characters = data.get("Characters", {})
+        characters_data = data.get("Characters", {}).get("Characters", [])
         environment = data.get("Environment", {})
+
+        # 从列表中查找当前角色的数据
+        current_char_data = next((c for c in characters_data if c.get("CharacterName") == character_name), {})
+        
         # ==========================================
-        # 插入点：调用感知层，生成硬编码任务
-        
-        # 1. 提取现有的黑板任务（如果有）
-        blackboard = data.get("Blackboard", {}).get("Tasks", [])
-        
-        # 2. 生成新任务（基于 Actor 状态）
-        auto_tasks = perceive_environment_tasks(environment)
-        
-        # 3. 合并任务
-        if auto_tasks:
-            blackboard.extend(auto_tasks)
-            # 将合并后的黑板写回 data，以便 Agent 能读到
-            if "Blackboard" not in data:
-                data["Blackboard"] = {}
-            data["Blackboard"] = blackboard
-        environment["Blackboard"] = blackboard
-        # ===========================================
+        # 先更新黑板以移除已完成任务，再感知生成新任务
+        Blackboard_Instance.update(data)
+        perceive_environment_tasks(environment)
+        _print_blackboard_tasks()
+        # ==========================================
         
         print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")
         
@@ -234,10 +252,10 @@ def get_instruction():
         # environment_data = environment
 
         if character_name not in agents:
-            agents[character_name] = RimSpaceAgent(character_name, character_name.lower())
+            agents[character_name] = RimSpaceAgent(character_name, character_name.lower(), Blackboard_Instance)
         agent = agents[character_name]
         decision = agent.make_decision(
-            characters.get(character_name, {}),
+            current_char_data,
             environment
         )
         print(f"[决策] {decision}")
