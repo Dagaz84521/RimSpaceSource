@@ -9,6 +9,8 @@ from typing import Dict, Optional
 from agent_manager import RimSpaceAgent
 from blackboard import Blackboard, BlackboardTask, Goal
 from rimspace_enum import EInteractionType, ECultivatePhase
+from planner import Planner
+from game_data_manager import GameDataManager
 import os
 import itemid_to_name
 
@@ -23,6 +25,9 @@ game_state_cache: Dict = {}
 
 # 黑板任务管理
 Blackboard_Instance = Blackboard()
+
+# 全局Planner实例用于依赖分解
+Global_Planner = Planner(Blackboard_Instance)
 
 # 一些可能会删除的测试代码
 def perceive_environment_tasks(environment_data):
@@ -77,7 +82,7 @@ def perceive_environment_tasks(environment_data):
         elif actor_type == EInteractionType.WorkStation.value:
             task_list = actor.get("TaskList", {})
             for task_id, count in task_list.items():
-
+                # 先创建主任务
                 goal = Goal(
                     target_actor=actor_name,
                     property_type="TaskList",
@@ -88,9 +93,29 @@ def perceive_environment_tasks(environment_data):
                 task = BlackboardTask(
                     description=f"Make {count}× {itemid_to_name.get_item_name(task_id)} at {actor_name}",
                     goal = goal,
-                    required_skill = "canCraft"
+                    required_skill = "canCraft",
+                    dependencies = []  # 稍后填充
                 )
                 Blackboard_Instance.post_task(task)
+                
+                # 使用planner检查原料需求，生成依赖任务
+                recipe = Global_Planner.product_to_recipe.get(str(task_id))
+                if recipe:
+                    ingredients = recipe.get("Ingredients", [])
+                    for ing in ingredients:
+                        ing_id = str(ing["ItemID"])
+                        ing_count = ing["Count"]
+                        
+                        # 调用planner生成原料供应任务（生产/搬运），并建立依赖
+                        child_task_id = Global_Planner._trigger_system_supply(
+                            ing_id, 
+                            ing_count, 
+                            actor_name,  # 目标设施是当前WorkStation
+                            environment_data,
+                            task.task_id  # 传入主任务ID作为父任务
+                        )
+                        if child_task_id and child_task_id not in task.dependencies:
+                            task.dependencies.append(child_task_id)
 
 def _get_goal_current_value(goal, environment):
     """从环境中获取Goal的当前值，支持各种属性类型（Inventory/TaskList/CultivateInfo）"""
@@ -130,12 +155,16 @@ def get_blackboard() -> list:
 
 
 def _print_blackboard_tasks(environment=None) -> None:
-    """打印黑板任务到控制台，包括Goal完成情况"""
+    """打印黑板任务到控制台，包括Goal完成情况和依赖关系"""
     tasks = Blackboard_Instance.tasks
     if not tasks:
         print("[Blackboard] 任务列表: (empty)")
     else:
         print("[Blackboard] 任务列表:")
+        
+        # 构建task_id到任务的映射
+        task_map = {t.task_id: t for t in tasks}
+        
         for idx, task in enumerate(tasks, start=1):
             desc = task.description if hasattr(task, "description") else str(task)
             skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
@@ -148,7 +177,15 @@ def _print_blackboard_tasks(environment=None) -> None:
                 if current is not None:
                     goal_status = f" [Goal: {current}/{target}]"
             
-            print(f"    {idx}. [{skill}] {desc}{goal_status}")
+            # 追加依赖信息
+            dep_status = ""
+            if hasattr(task, "dependencies") and task.dependencies:
+                # 检查有多少依赖未完成（仍在任务列表中）
+                active_deps = [dep_id for dep_id in task.dependencies if dep_id in task_map]
+                if active_deps:
+                    dep_status = f" [Deps: {len(active_deps)} pending]"
+            
+            print(f"    {idx}. [{skill}] {desc}{goal_status}{dep_status}")
 
 
 # ========== 数据加载辅助函数 ==========

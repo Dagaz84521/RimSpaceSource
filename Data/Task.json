@@ -29,7 +29,7 @@
         "Ingredients":[
             {
                 "ItemID": 1001,
-                "Count": 5
+                "Count": 1
             }
         ],
         "RequiredFacility": "WorkStation",
@@ -45,7 +45,7 @@
         "Ingredients":[
             {
                 "ItemID": 1001,
-                "Count": 5
+                "Count": 1
             }
         ],
         "RequiredFacility": "WorkStation",
@@ -54,14 +54,14 @@
         }
     },
     {
-        "TaskID": 200,
+        "TaskID": 2003,
         "TaskName": "制作套餐",
         "ProductID": 2003,
         "TaskWorkLoad": 150,
         "Ingredients":[
             {
                 "ItemID": 1002,
-                "Count": 5
+                "Count": 1
             }
         ],
         "RequiredFacility": "Stove",
@@ -77,11 +77,11 @@
         "Ingredients":[
             {
                 "ItemID": 2002,
-                "Count": 2
+                "Count": 1
             },
             {
                 "ItemID": 2001,
-                "Count": 3
+                "Count": 1
             }
         ],
         "RequiredFacility": "WorkStation",

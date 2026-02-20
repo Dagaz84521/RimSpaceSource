@@ -175,37 +175,14 @@ int32 UInventoryComponent::GetItemCount(int32 ItemID) const
 
 TSharedPtr<FJsonObject> UInventoryComponent::GetInventoryDataAsJson() const
 {
-	TSharedPtr<FJsonObject> RootObj = MakeShareable(new FJsonObject());
-	// 改用 Object 存储，Key 是物品 ID 的字符串
 	TSharedPtr<FJsonObject> ItemsMapObj = MakeShareable(new FJsonObject());
-
-	auto* GI = Cast<URimSpaceGameInstance>(GetWorld()->GetGameInstance());
-	if (!GI) return RootObj;
-
 	for (const FItemStack& Stack : Items)
 	{
 		if (Stack.Count <= 0) continue;
-
-		TSharedPtr<FJsonObject> ItemDetailObj = MakeShareable(new FJsonObject());
-        
-		// 写入数量
-		ItemDetailObj->SetNumberField(TEXT("count"), Stack.Count);
-
-		// 写入名称（对 LLM 非常重要）
-		const FItem* Data = GI->GetItemData(Stack.ItemID);
-		if (Data)
-		{
-			ItemDetailObj->SetStringField(TEXT("name"), Data->DisplayName.ToString());
-		}
-		else
-		{
-			ItemDetailObj->SetStringField(TEXT("name"), TEXT("UnknownItem"));
-		}
-
 		// 以 ItemID 作为 Key 存入 Map
-		ItemsMapObj->SetObjectField(FString::FromInt(Stack.ItemID), ItemDetailObj);
+		ItemsMapObj->SetNumberField(FString::FromInt(Stack.ItemID), Stack.Count);
 	}
-
+	
 	// 注意：这里为了保持 Python 解析方便，直接返回这个 Map
 	return ItemsMapObj;
 }

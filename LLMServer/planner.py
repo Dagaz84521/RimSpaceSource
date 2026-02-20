@@ -83,6 +83,20 @@ class Planner:
             if type_suffix in actor.get("ActorType", "") or type_suffix in actor.get("ActorName", ""):
                 return actor.get("ActorName")
         return None
+
+    def get_actor_item_count(self, actor_name, item_id, environment) -> int:
+        """获取指定设施/容器中某物品的数量"""
+        if not actor_name:
+            return 0
+        str_id = str(item_id)
+        for actor in environment.get("Actors", []):
+            if actor.get("ActorName") != actor_name:
+                continue
+            inv = actor.get("Inventory", {})
+            if isinstance(inv, dict):
+                count = inv.get(str_id, 0)
+                return count if isinstance(count, int) else 0
+        return 0
     
     # === 核心入口 ===
     def generate_plan(self, agent_name, high_level_action, params, environment):
@@ -100,6 +114,7 @@ class Planner:
     def _plan_eat(self, agent_name, params, env) -> PlanResult:
         # 寻找食物（Meal -> 2003)
         food_id = 2003
+        current_loc = params.get("current_location")
         source = self.find_actor_with_item(food_id, 1, env)
         if not source:
             # 游戏中没有食物，触发系统任务
@@ -107,11 +122,15 @@ class Planner:
             self._trigger_system_supply(food_id, 3, "Stove", env)
             return PlanResult(False, [cmd_wait(5)], "No food available. Cooking task posted.")
         plan = []
-        plan.append(cmd_move(source))
+        if source and current_loc != source:
+            plan.append(cmd_move(source))
+            current_loc = source
         plan.append(cmd_take(food_id, 1))
         table = self.find_actor_by_type("Table", env)
         if table:
-            plan.append(cmd_move(table))
+            if current_loc != table:
+                plan.append(cmd_move(table))
+                current_loc = table
         plan.append(cmd_use(food_id))
         return PlanResult(True, plan, "Eating sequence")
     
@@ -119,13 +138,23 @@ class Planner:
         target = params.get("target_name")
         if not target:
             return PlanResult(False, [cmd_wait(2)], "No target specified for planting.")
-        return PlanResult(True, [cmd_move(target), cmd_use(0)], "Planting sequence")
+        current_loc = params.get("current_location")
+        plan = []
+        if current_loc != target:
+            plan.append(cmd_move(target))
+        plan.append(cmd_use(0))
+        return PlanResult(True, plan, "Planting sequence")
     
     def _plan_harvest(self, agent_name, params, env) -> PlanResult:
         target = params.get("target_name")
         if not target:
             return PlanResult(False, [cmd_wait(2)], "No target specified for harvesting.")
-        return PlanResult(True, [cmd_move(target), cmd_use(0)], "Harvesting sequence")
+        current_loc = params.get("current_location")
+        plan = []
+        if current_loc != target:
+            plan.append(cmd_move(target))
+        plan.append(cmd_use(0))
+        return PlanResult(True, plan, "Harvesting sequence")
     
     def _plan_transport(self, agent_name, params, env) -> PlanResult:
         source = params.get("target_name")
@@ -134,12 +163,17 @@ class Planner:
         count = params.get("count", 1)
         if not source or not destination or not item_id:
             return PlanResult(False, [cmd_wait(2)], "Incomplete parameters for transport.")
-        return PlanResult(True, [
-            cmd_move(source),
-            cmd_take(item_id, count),
-            cmd_move(destination),
-            cmd_put(item_id, count)
-        ], f"Transporting {count} items.")
+        current_loc = params.get("current_location")
+        plan = []
+        if current_loc != source:
+            plan.append(cmd_move(source))
+            current_loc = source
+        plan.append(cmd_take(item_id, count))
+        if destination != current_loc:
+            plan.append(cmd_move(destination))
+            current_loc = destination
+        plan.append(cmd_put(item_id, count))
+        return PlanResult(True, plan, f"Transporting {count} items.")
     
     def _plan_wait(self, agent_name, params, env) -> PlanResult:
         minutes = params.get("minutes", 10)
@@ -161,6 +195,7 @@ class Planner:
         
         plan = []
         missing_resources = []  # 收集所有缺失的原料
+        current_loc = params.get("current_location")
         
         for ing in recipe.get("Ingredients", []):
             ing_id = str(ing["ItemID"])
@@ -183,10 +218,15 @@ class Planner:
                     return PlanResult(False, [cmd_wait(5)], f"Could not locate {ing_id} in containers.")
                 
                 # 生成搬运指令
-                plan.append(cmd_move(source))
-                plan.append(cmd_take(ing_id, needed_count))
-                plan.append(cmd_move(target_facility))
-                plan.append(cmd_put(ing_id, needed_count))
+                if source != target_facility:
+                    if current_loc != source:
+                        plan.append(cmd_move(source))
+                        current_loc = source
+                    plan.append(cmd_take(ing_id, needed_count))
+                    if current_loc != target_facility:
+                        plan.append(cmd_move(target_facility))
+                        current_loc = target_facility
+                    plan.append(cmd_put(ing_id, needed_count))
 
         # 如果有任何缺失的原料，返回失败并等待
         if missing_resources:
@@ -195,19 +235,24 @@ class Planner:
             return PlanResult(False, [cmd_wait(10)], feedback)
 
         # 2. 开始制作
+        if current_loc != target_facility:
+            plan.append(cmd_move(target_facility))
+            current_loc = target_facility
         plan.append(cmd_use(recipe["TaskID"]))
         
         return PlanResult(True, plan, f"Crafting {product_name} sequence started.")
     
 
-    def _trigger_system_supply(self, item_id, amount_needed, target_facility_name="WorkStation", environment=None):
+    def _trigger_system_supply(self, item_id, amount_needed, target_facility_name="WorkStation", environment=None, parent_task_id=None):
         """
         向黑板发布系统级补货任务 (智能分流版)
         支持递归检查生产链依赖
+        :param parent_task_id: 父任务ID，新任务将成为父任务的依赖项
+        :return: 新创建任务的task_id（如果创建），None（如果未创建）
         """
         if environment is None:
             print("[System] Warning: environment is None in _trigger_system_supply")
-            return
+            return None
             
         item_info = self.item_map.get(str(item_id), {})
         item_name = item_info.get("ItemName", f"Item_{item_id}")
@@ -219,12 +264,23 @@ class Planner:
         
         for t in existing_tasks:
             if task_signature_produce in t.description or task_signature_transport in t.description:
-                return
+                # 任务已存在，如果有父任务，将现有任务加入父任务的依赖
+                if parent_task_id:
+                    parent_task = next((pt for pt in existing_tasks if pt.task_id == parent_task_id), None)
+                    if parent_task and t.task_id not in parent_task.dependencies:
+                        parent_task.dependencies.append(t.task_id)
+                        print(f"[System] Added existing task {t.description} as dependency of parent task")
+                return t.task_id
 
-        # 2. 获取全局库存 (Storage + 所有容器)
+        # 2. 获取目标设施库存，已满足则无需发布任务
+        target_stock = self.get_actor_item_count(target_facility_name, item_id, environment)
+        if target_stock >= amount_needed:
+            return None
+
+        # 3. 获取全局库存 (Storage + 所有容器)
         total_stock = self.get_total_item_count(item_id, environment)
         
-        # 3. 构造 Goal (无论生产还是搬运，最终目的都是让目标设施里有东西)
+        # 4. 构造 Goal (无论生产还是搬运，最终目的都是让目标设施里有东西)
         goal = Goal(
             target_actor=target_facility_name,  # 直接指向目标设施
             property_type="Inventory",
@@ -233,7 +289,10 @@ class Planner:
             value=amount_needed
         )
 
-        # 4. 核心分流逻辑
+        new_task = None
+        dependency_task_ids = []  # 收集当前任务依赖的子任务ID
+
+        # 5. 核心分流逻辑
         if total_stock < amount_needed:
             # === 分支 A: 生产任务 (Production) ===
             # 只有当全局缺货时，才发布生产任务
@@ -251,6 +310,17 @@ class Planner:
                 ingredients = recipe.get("Ingredients", [])
                 print(f"[Debug] Item {item_id} has {len(ingredients)} ingredients")
                 
+                # 先创建当前生产任务（占位，稍后补充依赖）
+                full_desc = f"{task_signature_produce} (For {target_facility_name})"
+                new_task = BlackboardTask(
+                    description=full_desc,
+                    goal=goal,
+                    priority=6,
+                    required_skill=skill_name,
+                    dependencies=[]  # 稍后填充
+                )
+                
+                # 递归处理所有原料，收集依赖任务ID
                 for ing in ingredients:
                     ing_id = str(ing["ItemID"])
                     ing_count = ing["Count"]
@@ -259,29 +329,39 @@ class Planner:
                     print(f"[Debug] Ingredient {ing_id}: need={ing_count}, stock={ing_stock}")
                     
                     # 如果原料不足，递归触发原料的生产/搬运任务
-                    if ing_stock < ing_count:  # 直接检查是否不足所需数量
+                    if ing_stock < ing_count:
                         # 获取原料的配方以确定其生产设施
                         ingredient_recipe = self.product_to_recipe.get(ing_id)
                         ingredient_target = ingredient_recipe.get("RequiredFacility", "WorkStation") if ingredient_recipe else "WorkStation"
                         
                         ing_name = self.item_map.get(ing_id, {}).get("ItemName", f"Item_{ing_id}")
                         print(f"[System] Recursively triggered supply for ingredient: {ing_name} -> {ingredient_target}")
-                        self._trigger_system_supply(ing_id, ing_count, ingredient_target, environment)
+                        
+                        # 递归调用，传入当前任务ID作为父任务
+                        child_task_id = self._trigger_system_supply(ing_id, ing_count, ingredient_target, environment, new_task.task_id)
+                        if child_task_id and child_task_id not in dependency_task_ids:
+                            dependency_task_ids.append(child_task_id)
                     else:
                         print(f"[Debug] Ingredient {ing_id} is sufficiently stocked.")
-                        self._trigger_system_supply(ing_id, ing_count, target_facility_name, environment)  # 直接触发搬运任务确保原料到位
+                        # 直接触发搬运任务确保原料到位
+                        child_task_id = self._trigger_system_supply(ing_id, ing_count, target_facility_name, environment, new_task.task_id)
+                        if child_task_id and child_task_id not in dependency_task_ids:
+                            dependency_task_ids.append(child_task_id)
+                
+                # 将收集到的依赖任务ID赋值给新任务
+                new_task.dependencies = dependency_task_ids
+                print(f"[System] Auto-posted PRODUCTION task: {full_desc} [Req: {skill_name}] [Deps: {len(dependency_task_ids)}]")
             else:
                 skill_name = None
-            
-            full_desc = f"{task_signature_produce} (For {target_facility_name})"
-            
-            new_task = BlackboardTask(
-                description=full_desc,
-                goal=goal,
-                priority=6, # 生产优先级略高
-                required_skill=skill_name # <--- 【关键】: 锁死技能，Chef 只有 CanCook，接不了 CanCraft 的任务
-            )
-            print(f"[System] Auto-posted PRODUCTION task: {full_desc} [Req: {skill_name}]")
+                full_desc = f"{task_signature_produce} (For {target_facility_name})"
+                new_task = BlackboardTask(
+                    description=full_desc,
+                    goal=goal,
+                    priority=6,
+                    required_skill=skill_name,
+                    dependencies=[]
+                )
+                print(f"[System] Auto-posted PRODUCTION task (no recipe): {full_desc}")
             
         else:
             # === 分支 B: 搬运任务 (Logistics) ===
@@ -292,7 +372,8 @@ class Planner:
                 description=full_desc,
                 goal=goal,
                 priority=5,
-                required_skill=None # <--- 【关键】: 不限技能，Chef 可以帮忙搬运
+                required_skill=None,  # <--- 【关键】: 不限技能，Chef 可以帮忙搬运
+                dependencies=[]  # 搬运任务通常无依赖
             )
             
             # 【新增】为搬运任务添加元数据，以便 agent_manager 正确调用 _plan_transport
@@ -303,6 +384,16 @@ class Planner:
             
             print(f"[System] Auto-posted TRANSPORT task: {full_desc}")
         
+        # 发布任务到黑板
         self.blackboard.post_task(new_task)
+        
+        # 如果有父任务，将当前任务添加到父任务的依赖列表
+        if parent_task_id and new_task:
+            parent_task = next((t for t in self.blackboard.tasks if t.task_id == parent_task_id), None)
+            if parent_task and new_task.task_id not in parent_task.dependencies:
+                parent_task.dependencies.append(new_task.task_id)
+                print(f"[System] Linked {new_task.description} as dependency of parent task")
+        
+        return new_task.task_id if new_task else None
 
         

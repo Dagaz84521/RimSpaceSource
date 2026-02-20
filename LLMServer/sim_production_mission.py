@@ -1,6 +1,7 @@
 import argparse
 import copy
 import json
+import os
 import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -33,6 +34,32 @@ def _remove_item(inv: Dict[str, int], item_id: int, count: int) -> bool:
     if inv[key] <= 0:
         inv.pop(key, None)
     return True
+
+
+def _load_task_product_map() -> Dict[str, int]:
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "Data")
+    task_path = os.path.join(data_dir, "Task.json")
+    try:
+        with open(task_path, "r", encoding="utf-8") as handle:
+            tasks = json.load(handle)
+        return {str(t["TaskID"]): int(t.get("ProductID", t["TaskID"])) for t in tasks}
+    except Exception:
+        return {}
+
+
+def _load_task_ingredients_map() -> Dict[str, List[Dict[str, int]]]:
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "Data")
+    task_path = os.path.join(data_dir, "Task.json")
+    try:
+        with open(task_path, "r", encoding="utf-8") as handle:
+            tasks = json.load(handle)
+        return {str(t["TaskID"]): t.get("Ingredients", []) for t in tasks}
+    except Exception:
+        return {}
+
+
+TASK_PRODUCT_MAP = _load_task_product_map()
+TASK_INGREDIENTS_MAP = _load_task_ingredients_map()
 
 
 @dataclass
@@ -139,12 +166,39 @@ class SimWorld:
                     cultivate_info["CurrentPhase"] = "ECultivatePhase::ECP_WaitingToPlant"
                     cultivate_info["CurrentCultivateType"] = "ECultivateType::ECT_None"
             elif "WorkStation" in actor_type or "Stove" in actor_type:
-                task_list = actor.setdefault("TaskList", {})
                 task_key = str(param_id)
-                if task_key in task_list:
-                    task_list[task_key] = max(0, int(task_list[task_key]) - 1)
-                    if task_list[task_key] == 0:
-                        task_list.pop(task_key, None)
+                # 检查任务是否是有效的任务（由 LLM 指令动态触发）
+                if task_key in TASK_PRODUCT_MAP:
+                    inv_actor = actor.setdefault("Inventory", {})
+                    ingredients = TASK_INGREDIENTS_MAP.get(task_key, [])
+                    task_list = actor.get("TaskList", {})
+                    remaining_tasks = int(task_list.get(task_key, 0)) if isinstance(task_list, dict) else 0
+                    has_all_ingredients = True
+                    for ing in ingredients:
+                        ing_id = int(ing.get("ItemID", 0))
+                        ing_count = int(ing.get("Count", 0))
+                        if ing_count <= 0:
+                            continue
+                        if inv_actor.get(str(ing_id), 0) < ing_count:
+                            has_all_ingredients = False
+                            break
+
+                    if has_all_ingredients:
+                        for ing in ingredients:
+                            ing_id = int(ing.get("ItemID", 0))
+                            ing_count = int(ing.get("Count", 0))
+                            if ing_count > 0:
+                                _remove_item(inv_actor, ing_id, ing_count)
+                        product_id = TASK_PRODUCT_MAP.get(task_key)
+                        if product_id is not None:
+                            _add_item(inv_actor, product_id, 1)
+                        # 制作完成后，只有当任务列表中有该任务时才减少
+                        if isinstance(task_list, dict) and remaining_tasks > 0:
+                            remaining_tasks = max(0, remaining_tasks - 1)
+                            if remaining_tasks == 0:
+                                task_list.pop(task_key, None)
+                            else:
+                                task_list[task_key] = remaining_tasks
             elif "Table" in actor_type:
                 # 吃饭逻辑：消耗背包中的 Meal (ID: 2003)，恢复 Hunger
                 inv_char = char.get("Inventory", {})
@@ -264,8 +318,11 @@ def build_default_world() -> Dict:
                 {
                     "ActorName": "WorkStation",
                     "ActorType": "EInteractionType::EAT_WorkStation",
-                    "Inventory": {},
-                    "TaskList": {"3001": 1},
+                    "Inventory": {
+                    },
+                    "TaskList": {
+                        "3001": 3,
+                    },
                 },
                 {
                     "ActorName": "Stove",
@@ -399,6 +456,8 @@ def main() -> int:
 
         # 每轮结束后，降低所有角色的 Hunger 和 Energy
         world.degrade_character_stats(args.degradation)
+        # 每轮结束后，作物生长推进
+        world.tick_environment(3)
         
         # 输出当前角色状态
         print(f"\n  [Character Stats after round {round_num}]:")

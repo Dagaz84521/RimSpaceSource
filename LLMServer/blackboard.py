@@ -78,12 +78,13 @@ class TaskStatus(Enum):
 
 
 class BlackboardTask:
-    def __init__ (self, description: str, goal: Goal, priority: int = 1, required_skill: Optional[str] = None):
+    def __init__ (self, description: str, goal: Goal, priority: int = 1, required_skill: Optional[str] = None, dependencies: List[str] = None):
         self.task_id = str(uuid.uuid4())
         self.description = description
         self.goal = goal
         self.priority = priority
         self.required_skill = required_skill
+        self.dependencies = dependencies or []  # 依赖的其他任务的task_id列表
     
     def is_active(self, game_state: Dict) -> bool:
         return not self.goal.is_satisfied(game_state)
@@ -127,8 +128,37 @@ class Blackboard:
                 active_tasks.append(t)
         self.tasks = active_tasks
 
+    def get_executable_tasks(self, agent_info):
+        """
+        获取当前可执行的任务列表（无未完成依赖 + 符合技能要求）
+        :param agent_info: 角色信息，主要是角色的技能
+        :return: 可执行的任务列表
+        """
+        # 提取角色技能 (兼容 Skills 和 CharacterSkills，处理大小写)
+        raw_skills = agent_info.get("Skills", []) or agent_info.get("CharacterSkills", [])
+        agent_skills = {s.lower() for s in raw_skills}
+        
+        # 构建当前存在的任务ID集合
+        active_task_ids = {t.task_id for t in self.tasks}
+        
+        executable_tasks = []
+        for t in self.tasks:
+            # 检查技能要求
+            if t.required_skill is not None and t.required_skill.lower() not in agent_skills:
+                continue
+            
+            # 检查依赖关系：所有依赖的任务都必须已完成（不在active列表中）
+            has_unmet_dependencies = any(dep_id in active_task_ids for dep_id in t.dependencies)
+            if has_unmet_dependencies:
+                continue
+            
+            executable_tasks.append(t)
+        
+        return executable_tasks
+    
     def get_tasks(self, agent_info): 
         """
+        【已废弃】请使用 get_executable_tasks() 替代
         获取任务列表，可选按任务类型和请求者（角色）筛选。
         :param agent_info: 角色信息，主要是角色的技能，根据角色的技能筛选任务
         :return: 满足条件的任务列表
