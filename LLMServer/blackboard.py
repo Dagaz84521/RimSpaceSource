@@ -17,53 +17,115 @@ class Goal:
         self.value = value # 目标值
     
     def is_satisfied(self, game_state_snapshot)->bool:
+        # 全局库存检查（目标对象为 "Global"时）
+        if self.target_actor == "Global" and self.property_type == "Inventory":
+            total = 0
+            actors_list = game_state_snapshot.get("Environment", {}).get("Actors", [])
+            for a in actors_list:
+                if a.get("Type") == "Character": 
+                    continue # 排除角色背包防死锁
+                inv = a.get("Inventory", {})
+                if isinstance(inv, dict) and self.key is not None:
+                    # 假设简单字典，如果你的库存有嵌套需使用之前写的嵌套解析
+                    total += inv.get(str(self.key), 0)
+            
+            op = self.operator
+            try:
+                if op == "==": return total == self.value
+                elif op == "!=": return total != self.value
+                elif op == ">": return total > self.value
+                elif op == "<": return total < self.value
+                elif op == ">=": return total >= self.value
+                elif op == "<=": return total <= self.value
+                else: return False
+            except Exception:
+                return False
+
         actors_list = game_state_snapshot.get("Environment", {}).get("Actors", [])
-        actor_state = next((a for a in actors_list if a.get("ActorName") == self.target_actor), None)
-        if not actor_state:
+        
+        # 支持两种模式：
+        # 1. 精确匹配：target_actor="CultivateChamber_1" (完全相等)
+        # 2. 分类匹配：target_actor="CultivateChamber" (检查所有包含该名称的设施，汇总数值)
+        
+        matched_actors = []
+        for actor in actors_list:
+            actor_name = actor.get("ActorName", "")
+            # 先尝试精确匹配
+            if actor_name == self.target_actor:
+                matched_actors = [actor]
+                break
+            # 否则尝试前缀匹配（用于分类检查）
+            elif actor_name.startswith(self.target_actor):
+                matched_actors.append(actor)
+        
+        if not matched_actors:
             return False
         
-        prop = actor_state.get(self.property_type)
-        if prop is None:
-            return False
-        
-        # 支持嵌套字典和简单字典
-        value = 0
-        if isinstance(prop, dict) and self.key is not None:
-            # 检查 key 是否包含"."（表示嵌套，如 "1001.count"）
-            if "." in str(self.key):
-                # 处理嵌套情况：逐层获取
-                keys = str(self.key).split(".")
-                value = prop
-                for k in keys:
-                    if isinstance(value, dict):
-                        value = value.get(k, 0)
-                    else:
-                        value = 0
-                        break
+        # 如果有多个匹配的设施，汇总它们的数值
+        total_value = 0
+        has_numeric = False
+        non_numeric_values = []
+        for actor_state in matched_actors:
+            prop = actor_state.get(self.property_type)
+            if prop is None:
+                continue
+            
+            # 支持嵌套字典和简单字典
+            value = 0
+            if isinstance(prop, dict) and self.key is not None:
+                # 检查 key 是否包含"."（表示嵌套，如 "1001.count"）
+                if "." in str(self.key):
+                    # 处理嵌套情况：逐层获取
+                    keys = str(self.key).split(".")
+                    value = prop
+                    for k in keys:
+                        if isinstance(value, dict):
+                            value = value.get(k, 0)
+                        else:
+                            value = 0
+                            break
+                else:
+                    # 处理简单情况：直接按键查询
+                    value = prop.get(self.key, 0)
             else:
-                # 处理简单情况：直接按键查询
-                value = prop.get(self.key, 0)
-        else:
-            # 非字典属性或无 key，直接使用 prop
-            value = prop
+                # 非字典属性或无 key，直接使用 prop
+                value = prop
+            
+            # 数值用于汇总，非数值保留用于直接比较
+            if isinstance(value, (int, float)):
+                total_value += value
+                has_numeric = True
+            else:
+                non_numeric_values.append(value)
         
         # 比较操作
         op = self.operator
         try:
-            if op == "==":
-                return value == self.value
-            elif op == "!=":
-                return value != self.value
-            elif op == ">":
-                return value > self.value
-            elif op == "<":
-                return value < self.value
-            elif op == ">=":
-                return value >= self.value
-            elif op == "<=":
-                return value <= self.value
-            else:
+            if has_numeric:
+                if op == "==":
+                    return total_value == self.value
+                elif op == "!=":
+                    return total_value != self.value
+                elif op == ">":
+                    return total_value > self.value
+                elif op == "<":
+                    return total_value < self.value
+                elif op == ">=":
+                    return total_value >= self.value
+                elif op == "<=":
+                    return total_value <= self.value
+                else:
+                    return False
+
+            # 非数值目标仅在单一匹配时进行直接比较
+            if len(non_numeric_values) != 1:
                 return False
+            actual_value = non_numeric_values[0]
+            if op == "==":
+                return actual_value == self.value
+            if op == "!=":
+                return actual_value != self.value
+            return False
         except Exception:
             return False
 
@@ -78,16 +140,27 @@ class TaskStatus(Enum):
 
 
 class BlackboardTask:
-    def __init__ (self, description: str, goal: Goal, priority: int = 1, required_skill: Optional[str] = None, dependencies: List[str] = None):
+    def __init__ (self, description: str, goal: Goal, preconditions: List[Goal] = None, priority: int = 1, required_skill: Optional[str] = None):
         self.task_id = str(uuid.uuid4())
         self.description = description
         self.goal = goal
+        self.preconditions = preconditions or []
         self.priority = priority
         self.required_skill = required_skill
-        self.dependencies = dependencies or []  # 依赖的其他任务的task_id列表
     
     def is_active(self, game_state: Dict) -> bool:
         return not self.goal.is_satisfied(game_state)
+    
+    def are_preconditions_met(self, game_state: Dict) -> bool:
+        if not self.preconditions:
+            return True  # 没有前置条件，直接返回 True
+        
+        for cond in self.preconditions:
+            if not cond.is_satisfied(game_state):
+                # 调试输出
+                # print(f"    [前置条件未满足] {cond.target_actor}.{cond.property_type}[{cond.key}] {cond.operator} {cond.value}")
+                return False
+        return True
 
     def to_dict(self):
         return {
@@ -109,10 +182,11 @@ class Blackboard:
                 g.key == task.goal.key and
                 g.operator == task.goal.operator and
                 g.value == task.goal.value):
-                print(f"[Blackboard] 任务已存在，跳过添加: {task.description}")
-                return
+                # print(f"[Blackboard] 任务已存在，跳过添加: {task.description}")
+                return t  # 返回已存在的任务实例
         self.tasks.append(task)
         print(f"[Blackboard] 新任务已添加: {task.description}")
+        return task  # 返回新添加的任务实例
     
     def update(self, game_state: Dict):
         """
@@ -128,32 +202,43 @@ class Blackboard:
                 active_tasks.append(t)
         self.tasks = active_tasks
 
-    def get_executable_tasks(self, agent_info):
+    def get_executable_tasks(self, agent_info, game_state: Dict) -> List[BlackboardTask]:
         """
         获取当前可执行的任务列表（无未完成依赖 + 符合技能要求）
         :param agent_info: 角色信息，主要是角色的技能
+        :param game_state: 游戏状态，可能是 {"Environment": {...}} 或 {"Actors": [...]} 格式
         :return: 可执行的任务列表
         """
+        # 提取角色信息
+        char_name = agent_info.get("CharacterName", "Unknown")
+        
         # 提取角色技能 (兼容 Skills 和 CharacterSkills，处理大小写)
         raw_skills = agent_info.get("Skills", []) or agent_info.get("CharacterSkills", [])
         agent_skills = {s.lower() for s in raw_skills}
         
-        # 构建当前存在的任务ID集合
-        active_task_ids = {t.task_id for t in self.tasks}
+        # print(f"[get_executable_tasks] {char_name} 的技能: {agent_skills}, 黑板任务数: {len(self.tasks)}")
         
+        # 包装环境数据以符合 Goal.is_satisfied 的期望格式
+        wrapped_state = {"Environment": game_state} if "Environment" not in game_state else game_state
+        
+        # 构建当前存在的任务ID集合        
         executable_tasks = []
         for t in self.tasks:
-            # 检查技能要求
-            if t.required_skill is not None and t.required_skill.lower() not in agent_skills:
+            # 1. 检查技能要求
+            required = t.required_skill
+            if required is not None and required.lower() not in agent_skills:
+                # print(f"  [跳过] {t.description[:50]}... (技能不匹配: 需要 {required})")
                 continue
             
-            # 检查依赖关系：所有依赖的任务都必须已完成（不在active列表中）
-            has_unmet_dependencies = any(dep_id in active_task_ids for dep_id in t.dependencies)
-            if has_unmet_dependencies:
+            # 2. 检查先决条件 (传入当前真实游戏状态进行验证)
+            if not t.are_preconditions_met(wrapped_state):
+                # print(f"  [跳过] {t.description[:50]}... (前置条件未满足)")
                 continue
             
+            # print(f"  [可执行] {t.description[:50]}...")
             executable_tasks.append(t)
         
+        # print(f"[get_executable_tasks] {char_name} 可执行任务数: {len(executable_tasks)}")
         return executable_tasks
     
     def get_tasks(self, agent_info): 

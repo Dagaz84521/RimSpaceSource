@@ -30,16 +30,16 @@ class RimSpaceAgent:
         """
         # 1. 映射生理欲望
         # 假设游戏里 Energy 是 100-0 (100最精神)，我们需要反转为 Exhaustion 0-100 (100最累)
-        game_energy = char_data.get("CharacterStats", {}).get("Energy", 100)
+        game_energy = char_data.get("CharacterStats", {}).get("Energ", 100)
         self.desires["exhaustion"] = max(0, 100 - game_energy)
         
         # 假设游戏里 Hunger 是 0-100 (100最饱)，我们需要反转为 Hunger Desire 0-100 (100最饿)
-        game_food = char_data.get("CharacterStats", {}).get("Food", 100)
+        game_food = char_data.get("CharacterStats", {}).get("Hunge", 100)
         self.desires["hunger"] = max(0, 100 - game_food)
 
         # 2. 映射社会欲望 (Sense of Duty)
         # 简单逻辑：每个任务增加 20 点压力
-        task_count = len(self.blackboard.get_executable_tasks(char_data))
+        task_count = len(self.blackboard.get_executable_tasks(char_data, environment_data))
         self.desires["duty"] = min(100, task_count * 20)
         #print(f"[状态更新] {self.name} - Hunger: {self.desires['hunger']}, Exhaustion: {self.desires['exhaustion']}, Duty: {self.desires['duty']}")
 
@@ -57,7 +57,7 @@ class RimSpaceAgent:
         """
         
         # 获取任务列表字符串 (修正：从服务器端 Blackboard 获取，而不是从请求数据中获取)
-        relevant_tasks = self.blackboard.get_executable_tasks(char_data)
+        relevant_tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
         tasks = [self._format_task_for_prompt(t) for t in relevant_tasks]
         env_text = f"\n[Task Blackboard]: {', '.join(tasks) if tasks else 'Empty'}"
         
@@ -99,8 +99,8 @@ class RimSpaceAgent:
             # [优化] 添加剩余步数信息 (可选)
             next_cmd["RemainingSteps"] = len(self.action_queue)
 
-            print(f"[{self.name}] Executing queued action: {next_cmd.get('CommandType')} (Left: {len(self.action_queue)})")
-            print(f"[{self.name}] Remaining action_queue: {self.action_queue}")
+            # print(f"[{self.name}] Executing queued action: {next_cmd.get('CommandType')} (Left: {len(self.action_queue)})")
+            # print(f"[{self.name}] Remaining action_queue: {self.action_queue}")
             return next_cmd
 
         # 2. 构建 Prompt
@@ -113,7 +113,7 @@ class RimSpaceAgent:
         user_context = self.generate_observation_text(char_data, environment_data)
         
         # 3. 调用 LLM
-        print(f"[{self.name}] Thinking...")
+        # print(f"[{self.name}] Thinking...")
         response_str = self.llm.query(system_prompt, user_context)
         decision_json = self.llm.parse_json_response(response_str)
         
@@ -129,7 +129,7 @@ class RimSpaceAgent:
         # 【新增】如果是 Transport 命令，从任务中补充缺失的参数
         if command_type == "Transport":
             # 从黑板中找到相关的搬运任务，提取 item_id, source, destination, count
-            relevant_tasks = self.blackboard.get_executable_tasks(char_data)
+            relevant_tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
             transport_task = next((t for t in relevant_tasks if "Transport" in t.description), None)
             
             if transport_task and hasattr(transport_task, 'item_id'):
@@ -167,7 +167,7 @@ class RimSpaceAgent:
                 }
         else:
             # 规划失败（如资源不足，Planner已自动发布任务）
-            print(f"[{self.name}] Plan Failed: {plan_result.feedback}")
+            # print(f"[{self.name}] Plan Failed: {plan_result.feedback}")
             self.feedback_buffer = f"Last Action '{command_type}' Failed: {plan_result.feedback}"
             
             # 返回 Wait 并附带失败原因
@@ -200,8 +200,8 @@ class RimSpaceAgent:
             with open(profile_file, 'r', encoding='utf-8') as f:
                 return f.read()
         except FileNotFoundError:
-            print(f"Warning: Profile file not found: {profile_file}")
+            # print(f"Warning: Profile file not found: {profile_file}")
             return f"A skilled {profession} in the RimSpace colony."
         except Exception as e:
-            print(f"Error loading profile: {e}")
+            # print(f"Error loading profile: {e}")
             return f"A skilled {profession} in the RimSpace colony."

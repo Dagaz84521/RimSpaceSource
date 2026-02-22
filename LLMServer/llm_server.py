@@ -34,7 +34,6 @@ def perceive_environment_tasks(environment_data):
     """
     感知层：扫描环境中的 Actor 状态，自动生成隐式任务并注入到黑板中。
     """
-    
     # 获取环境中的所有 Actor
     actors = environment_data.get("Actors", [])
     if isinstance(actors, dict): # 处理一下数据结构可能的不一致（列表或字典）
@@ -42,7 +41,7 @@ def perceive_environment_tasks(environment_data):
     for actor in actors:
         actor_name = actor.get("ActorName", "")
         actor_type = actor.get("ActorType", "")
-        print(f"[感知] 处理 Actor: {actor_name} (类型: {actor_type})")
+        # print(f"[感知] 处理 Actor: {actor_name} (类型: {actor_type})")
         if actor_type == EInteractionType.CultivateChamber.value:
             # 检查培养舱的状态
             cultivate_info = actor.get("CultivateInfo", {})
@@ -82,40 +81,14 @@ def perceive_environment_tasks(environment_data):
         elif actor_type == EInteractionType.WorkStation.value:
             task_list = actor.get("TaskList", {})
             for task_id, count in task_list.items():
-                # 先创建主任务
-                goal = Goal(
-                    target_actor=actor_name,
-                    property_type="TaskList",
-                    key=task_id,
-                    operator="<=",
-                    value=0
+                # 【修改点】：感知层不再构建 Goal 和 Preconditions，
+                # 只是单纯地把“需求”抛给 Planner 进行统一调度和拆解。
+                Global_Planner.analyze_and_post_crafting_task(
+                    facility_name=actor_name,
+                    task_id=task_id,
+                    count=count,
+                    environment=environment_data
                 )
-                task = BlackboardTask(
-                    description=f"Make {count}× {itemid_to_name.get_item_name(task_id)} at {actor_name}",
-                    goal = goal,
-                    required_skill = "canCraft",
-                    dependencies = []  # 稍后填充
-                )
-                Blackboard_Instance.post_task(task)
-                
-                # 使用planner检查原料需求，生成依赖任务
-                recipe = Global_Planner.product_to_recipe.get(str(task_id))
-                if recipe:
-                    ingredients = recipe.get("Ingredients", [])
-                    for ing in ingredients:
-                        ing_id = str(ing["ItemID"])
-                        ing_count = ing["Count"]
-                        
-                        # 调用planner生成原料供应任务（生产/搬运），并建立依赖
-                        child_task_id = Global_Planner._trigger_system_supply(
-                            ing_id, 
-                            ing_count, 
-                            actor_name,  # 目标设施是当前WorkStation
-                            environment_data,
-                            task.task_id  # 传入主任务ID作为父任务
-                        )
-                        if child_task_id and child_task_id not in task.dependencies:
-                            task.dependencies.append(child_task_id)
 
 def _get_goal_current_value(goal, environment):
     """从环境中获取Goal的当前值，支持各种属性类型（Inventory/TaskList/CultivateInfo）"""
@@ -162,30 +135,35 @@ def _print_blackboard_tasks(environment=None) -> None:
     else:
         print("[Blackboard] 任务列表:")
         
+        # 包装 environment 以符合 Goal.is_satisfied 的期望格式
+        # wrapped_env = None
+        # if environment:
+        #     wrapped_env = {"Environment": environment} if "Environment" not in environment else environment
+        
         # 构建task_id到任务的映射
-        task_map = {t.task_id: t for t in tasks}
+        # task_map = {t.task_id: t for t in tasks}
         
         for idx, task in enumerate(tasks, start=1):
             desc = task.description if hasattr(task, "description") else str(task)
             skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
             
             # 追加Goal完成情况
-            goal_status = ""
-            if hasattr(task, "goal") and task.goal and environment:
-                current = _get_goal_current_value(task.goal, environment)
-                target = task.goal.value if hasattr(task.goal, 'value') else "?"
-                if current is not None:
-                    goal_status = f" [Goal: {current}/{target}]"
+            # goal_status = ""
+            # if hasattr(task, "goal") and task.goal and wrapped_env:
+            #     current = _get_goal_current_value(task.goal, environment)
+            #     target = task.goal.value if hasattr(task.goal, 'value') else "?"
+            #     if current is not None:
+            #         goal_status = f" [Goal: {current}/{target}]"
             
             # 追加依赖信息
-            dep_status = ""
-            if hasattr(task, "dependencies") and task.dependencies:
-                # 检查有多少依赖未完成（仍在任务列表中）
-                active_deps = [dep_id for dep_id in task.dependencies if dep_id in task_map]
-                if active_deps:
-                    dep_status = f" [Deps: {len(active_deps)} pending]"
+            # prep_status = ""
+            # if hasattr(task, "preconditions") and task.preconditions and wrapped_env:
+            #     unmet_count = sum(1 for cond in task.preconditions if not cond.is_satisfied(wrapped_env))
+            #     if unmet_count > 0:
+            #         prep_status = f" [Preconditions: {unmet_count} unmet]"
             
-            print(f"    {idx}. [{skill}] {desc}{goal_status}{dep_status}")
+            # print(f"    {idx}. [{skill}] {desc}{goal_status}{prep_status}")
+            print(f"    {idx}. [{skill}] {desc}")
 
 
 # ========== 数据加载辅助函数 ==========
@@ -196,11 +174,11 @@ def load_item_data() -> Dict:
         if os.path.exists(item_path):
             with open(item_path, 'r', encoding='utf-8') as f:
                 items = json.load(f)
-                print(f"[数据加载] 已加载 {len(items)} 个物品")
+                # print(f"[数据加载] 已加载 {len(items)} 个物品")
                 return {item["ItemID"]: item for item in items}
     except Exception as e:
-        print(f"[错误] 加载物品数据失败: {e}")
-    return {}
+        # print(f"[错误] 加载物品数据失败: {e}")
+        return {}
 
 
 def load_task_data() -> list:
@@ -210,11 +188,11 @@ def load_task_data() -> list:
         if os.path.exists(task_path):
             with open(task_path, 'r', encoding='utf-8') as f:
                 tasks = json.load(f)
-                print(f"[数据加载] 已加载 {len(tasks)} 个任务配方")
+                # print(f"[数据加载] 已加载 {len(tasks)} 个任务配方")
                 return tasks
     except Exception as e:
-        print(f"[错误] 加载任务数据失败: {e}")
-    return []
+        # print(f"[错误] 加载任务数据失败: {e}")
+        return []   
 
 # ========== Agents ==============
 agents = {}
@@ -241,7 +219,7 @@ def update_game_state():
         data = request.get_json()
         game_state_cache.update(data)
         
-        print(f"[UpdateGameState] 时间: {data.get('GameTime', 'N/A')}")
+        # print(f"[UpdateGameState] 时间: {data.get('GameTime', 'N/A')}")
         
         return jsonify({
             "status": "success",
@@ -309,7 +287,7 @@ def get_instruction():
         _print_blackboard_tasks(environment)
         # ==========================================
         
-        print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")
+        # print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")
         
         # ====== TODO: 在这里实现你的决策逻辑 ======
         # 示例：检查角色状态
@@ -337,7 +315,7 @@ def get_instruction():
         
     except Exception as e:
         import traceback
-        print(f"[错误] {e}")
+        # print(f"[错误] {e}")
         traceback.print_exc()
         return jsonify({
             "status": "error",
@@ -399,18 +377,18 @@ def create_use_command(character_name: str, target_name: str, param_id: int = 0,
 
 # ========== 服务器启动 ==========
 if __name__ == '__main__':
-    print("=" * 60)
-    print("  RimSpace LLM Server - 精简版 (用于重构)")
-    print("=" * 60)
-    print(f"  监听地址: http://127.0.0.1:5000")
-    print(f"  数据目录: {DATA_DIR}")
-    print()
-    print("  可用路由:")
-    print("    GET  /health          - 健康检查")
-    print("    POST /UpdateGameState - 更新游戏状态")
-    print("    POST /GetInstruction  - 获取角色指令")
-    print("=" * 60)
-    print()
+    # print("=" * 60)
+    # print("  RimSpace LLM Server - 精简版 (用于重构)")
+    # print("=" * 60)
+    # print(f"  监听地址: http://127.0.0.1:5000")
+    # print(f"  数据目录: {DATA_DIR}")
+    # print()
+    # print("  可用路由:")
+    # print("    GET  /health          - 健康检查")
+    # print("    POST /UpdateGameState - 更新游戏状态")
+    # print("    POST /GetInstruction  - 获取角色指令")
+    # print("=" * 60)
+    # print()
     
     # 启动Flask服务器
     app.run(

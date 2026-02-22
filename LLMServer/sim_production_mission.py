@@ -60,6 +60,10 @@ def _load_task_ingredients_map() -> Dict[str, List[Dict[str, int]]]:
 
 TASK_PRODUCT_MAP = _load_task_product_map()
 TASK_INGREDIENTS_MAP = _load_task_ingredients_map()
+CULTIVATE_PRODUCT_MAP = {
+    "ECultivateType::ECT_Cotton": 1001,
+    "ECultivateType::ECT_Corn": 1002,
+}
 
 
 @dataclass
@@ -89,6 +93,14 @@ class SimWorld:
         self.time = SimTime()
         self.environment = data.get("Environment", {})
         self.characters = data.get("Characters", {})
+
+    def has_pending_tasks(self) -> bool:
+        """检查是否还有待执行的任务（TaskList 非空）"""
+        for actor in self.environment.get("Actors", []):
+            task_list = actor.get("TaskList", {})
+            if isinstance(task_list, dict) and task_list:
+                return True
+        return False
 
     def build_request(self, target_agent: str) -> Dict:
         return {
@@ -163,8 +175,14 @@ class SimWorld:
                     cultivate_info["CurrentPhase"] = "ECultivatePhase::ECP_Growing"
                     cultivate_info["CurrentCultivateType"] = cultivate_info.get("TargetCultivateType", "ECultivateType::ECT_None")
                 elif phase == "ECultivatePhase::ECP_ReadyToHarvest":
+                    crop_type = cultivate_info.get("CurrentCultivateType", "ECultivateType::ECT_None")
+                    product_id = CULTIVATE_PRODUCT_MAP.get(crop_type)
+                    if product_id is not None:
+                        inv_actor = actor.setdefault("Inventory", {})
+                        _add_item(inv_actor, product_id, 3)
                     cultivate_info["CurrentPhase"] = "ECultivatePhase::ECP_WaitingToPlant"
                     cultivate_info["CurrentCultivateType"] = "ECultivateType::ECT_None"
+                    cultivate_info["GrowthProgress"] = 0
             elif "WorkStation" in actor_type or "Stove" in actor_type:
                 task_key = str(param_id)
                 # 检查任务是否是有效的任务（由 LLM 指令动态触发）
@@ -333,8 +351,7 @@ def build_default_world() -> Dict:
                     "ActorName": "Storage",
                     "ActorType": "EInteractionType::EAT_None",
                     "Inventory": {
-                        "1001": 10,
-                        "1002": 50,
+                        "1002": 10, # Corn
                     },
                 },
                 {
@@ -413,85 +430,156 @@ def _send_request(server_url: str, payload: Dict, timeout: Optional[float] = Non
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Simulate RimSpace production mission: Make 1 Clothes.")
-    parser.add_argument("--server", default="http://127.0.0.1:5000/GetInstruction", help="LLM server endpoint")
-    parser.add_argument("--agents", default="Farmer,Crafter,Chef", help="Comma-separated agent names")
-    parser.add_argument("--rounds", type=int, default=10, help="Number of rounds (each round = all agents act once)")
-    parser.add_argument("--timeout", type=float, default=None, help="HTTP timeout in seconds")
-    parser.add_argument("--print-state", action="store_true", help="Print world state after each round")
-    parser.add_argument("--degradation", type=int, default=10, help="Hunger/Energy degradation per round")
-    parser.add_argument("--interactive", action="store_true", help="Wait for 'n' input after each round")
-    args = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser(description="Simulate RimSpace production mission: Make 1 Clothes.")
+        parser.add_argument("--server", default="http://127.0.0.1:5000/GetInstruction", help="LLM server endpoint")
+        parser.add_argument("--agents", default="Farmer,Crafter,Chef", help="Comma-separated agent names")
+        parser.add_argument("--rounds", type=int, default=10, help="Number of rounds (each round = all agents act once)")
+        parser.add_argument("--timeout", type=float, default=None, help="HTTP timeout in seconds")
+        parser.add_argument("--print-state", action="store_true", help="Print world state after each round")
+        parser.add_argument("--print-inventory", action="store_true", help="Print each actor inventory after each round")
+        parser.add_argument("--degradation", type=int, default=10, help="Hunger/Energy degradation per round")
+        parser.add_argument("--interactive", action="store_true", help="Wait for 'n' input after each round")
+        parser.add_argument("--task", action="store_true", help="Auto-run until TaskList is empty (no interaction needed)")
+        args = parser.parse_args()
 
-    world = SimWorld(build_default_world())
-    agent_list = [a.strip() for a in args.agents.split(",") if a.strip()]
+        world = SimWorld(build_default_world())
+        agent_list = [a.strip() for a in args.agents.split(",") if a.strip()]
 
-    print("=" * 70)
-    print("  Production Mission: Make 1 Clothes (ID: 3001)")
-    print("=" * 70)
-    print(f"  Agents: {', '.join(agent_list)}")
-    print(f"  Mode: Interactive (press 'n' + Enter to advance each round)")
-    print(f"  Stats degradation per round: {args.degradation}")
-    print("=" * 70)
-    print()
+        print("=" * 70, flush=True)
+        print("  Production Mission: Make 1 Clothes (ID: 3001)", flush=True)
+        print("=" * 70, flush=True)
+        print(f"  Agents: {', '.join(agent_list)}", flush=True)
+        if args.task:
+            print(f"  Mode: Auto-run (stops when TaskList is empty)", flush=True)
+        else:
+            print(f"  Mode: Interactive (press 'n' + Enter to advance each round)", flush=True)
+        print(f"  Stats degradation per round: {args.degradation}", flush=True)
+        print("=" * 70, flush=True)
+        print(flush=True)
 
-    round_num = 1
-    while True:
-        print(f"\n[===== ROUND {round_num} =====]")
-        print(f"Time: {world.time.formatted()}")
-        
-        # 每轮中的每个 agent 请求一次
-        for agent in agent_list:
-            payload = world.build_request(agent)
-            print(f"  [{agent}] Requesting...", flush=True)
-            try:
-                decision = _send_request(args.server, payload, args.timeout)
-            except Exception as exc:
-                print(f"  [{agent}] Request failed: {exc}", flush=True)
-                return 1
-            world.apply_command(agent, decision)
-            cmd_type = decision.get("CommandType", "Wait")
-            target = decision.get("TargetName", "")
-            print(f"  [{agent}] -> {cmd_type} {target}", flush=True)
-
-        # 每轮结束后，降低所有角色的 Hunger 和 Energy
-        world.degrade_character_stats(args.degradation)
-        # 每轮结束后，作物生长推进
-        world.tick_environment(3)
-        
-        # 输出当前角色状态
-        print(f"\n  [Character Stats after round {round_num}]:")
-        for char in world.characters.get("Characters", []):
-            name = char.get("CharacterName")
-            hunger = char.get("CharacterStats", {}).get("Hunger", 0)
-            energy = char.get("CharacterStats", {}).get("Energy", 0)
-            print(f"    {name}: Hunger={hunger:.1f}, Energy={energy:.1f}")
-
-        # 可选：打印完整世界状态
-        if args.print_state:
-            snapshot = {
-                "GameTime": world.time.formatted(),
-                "Environment": world.environment,
-                "Characters": world.characters,
-            }
-            print("\n  [World State]:")
-            print(json.dumps(snapshot, indent=4))
-
-        # 等待用户输入 'n' 继续或其他命令退出
-        print(f"\n  Press 'n' + Enter to continue to Round {round_num + 1}, or 'q' + Enter to quit...", flush=True)
+        round_num = 1
+        auto_advance = 0
         while True:
-            user_input = input().strip().lower()
-            if user_input == 'n':
+            # 在 --task 模式下，如果没有待执行的任务，停止模拟
+            if args.task:
+                if not world.has_pending_tasks():
+                    print(f"\n[Task Check] No pending tasks found, stopping simulation...", flush=True)
+                    break
+                else:
+                    pending_info = []
+                    for actor in world.environment.get("Actors", []):
+                        task_list = actor.get("TaskList", {})
+                        if isinstance(task_list, dict) and task_list:
+                            pending_info.append(f"{actor.get('ActorName')}: {task_list}")
+                    if pending_info:
+                        print(f"[Task Check] Pending tasks: {', '.join(pending_info)}", flush=True)
+            
+            print(f"\n[===== ROUND {round_num} =====]", flush=True)
+            print(f"Time: {world.time.formatted()}", flush=True)
+            
+            # 每轮中的每个 agent 请求一次
+            for agent in agent_list:
+                payload = world.build_request(agent)
+                print(f"  [{agent}] Requesting...", flush=True)
+                try:
+                    decision = _send_request(args.server, payload, args.timeout)
+                except Exception as exc:
+                    print(f"  [{agent}] Request failed: {exc}", flush=True)
+                    return 1
+                world.apply_command(agent, decision)
+                cmd_type = decision.get("CommandType", "Wait")
+                target = decision.get("TargetName", "")
+                print(f"  [{agent}] -> {cmd_type} {target}", flush=True)
+
+            # 每轮结束后，降低所有角色的 Hunger 和 Energy
+            world.degrade_character_stats(args.degradation)
+            # 每轮结束后，作物生长推进
+            world.tick_environment(12)
+            
+            # 输出当前角色状态
+            print(f"\n  [Character Stats after round {round_num}]:", flush=True)
+            for char in world.characters.get("Characters", []):
+                name = char.get("CharacterName")
+                hunger = char.get("CharacterStats", {}).get("Hunger", 0)
+                energy = char.get("CharacterStats", {}).get("Energy", 0)
+                print(f"    {name}: Hunger={hunger:.1f}, Energy={energy:.1f}", flush=True)
+
+            if args.print_inventory:
+                print(f"\n  [Actor Inventories after round {round_num}]", flush=True)
+                for actor in world.environment.get("Actors", []):
+                    actor_name = actor.get("ActorName", "Unknown")
+                    inv = actor.get("Inventory", {})
+                    if isinstance(inv, dict) and inv:
+                        print(f"    {actor_name}: {inv}", flush=True)
+                    else:
+                        print(f"    {actor_name}: (empty)", flush=True)
+
+            # 可选：打印完整世界状态
+            if args.print_state:
+                snapshot = {
+                    "GameTime": world.time.formatted(),
+                    "Environment": world.environment,
+                    "Characters": world.characters,
+                }
+                print("\n  [World State]:", flush=True)
+                print(json.dumps(snapshot, indent=4), flush=True)
+
+            # 在 --task 模式下自动继续，否则等待用户输入
+            if args.task:
                 round_num += 1
-                break
-            elif user_input == 'q':
-                print("\n" + "=" * 70)
-                print("  Simulation Stopped by User")
-                print("=" * 70)
-                return 0
             else:
-                print("  Invalid input. Please enter 'n' to continue or 'q' to quit: ", flush=True)
+                if auto_advance > 0:
+                    auto_advance -= 1
+                    round_num += 1
+                    continue
+
+                print(f"\n  Press 'n' + Enter to continue to Round {round_num + 1}, 'nX' to run X rounds, or 'q' + Enter to quit...", flush=True)
+                while True:
+                    user_input = input().strip().lower()
+                    if user_input.startswith('n'):
+                        count_text = user_input[1:].strip()
+                        if not count_text:
+                            advance_count = 1
+                        else:
+                            try:
+                                advance_count = int(count_text)
+                            except ValueError:
+                                advance_count = 0
+                        if advance_count <= 0:
+                            print("  Invalid input. Use 'n' or 'nX' with a positive number, or 'q' to quit: ", flush=True)
+                            continue
+                        auto_advance = max(0, advance_count - 1)
+                        round_num += 1
+                        break
+                    elif user_input == 'q':
+                        print("\n" + "=" * 70, flush=True)
+                        print("  Simulation Stopped by User", flush=True)
+                        print("=" * 70, flush=True)
+                        return 0
+                    else:
+                        print("  Invalid input. Use 'n' or 'nX' with a positive number, or 'q' to quit: ", flush=True)
+
+        # 模拟完成
+        print("\n" + "=" * 70, flush=True)
+        if args.task:
+            print("  Simulation Completed: All tasks finished!", flush=True)
+            print(f"  Final Time: {world.time.formatted()}", flush=True)
+            print(f"  Total Rounds: {round_num - 1}", flush=True)
+        else:
+            print("  Simulation Stopped by User", flush=True)
+            print(f"  Final Time: {world.time.formatted()}", flush=True)
+            print(f"  Total Rounds: {round_num - 1}", flush=True)
+        print("=" * 70, flush=True)
+        return 0
+    
+    except Exception as e:
+        print(f"\nERROR: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
