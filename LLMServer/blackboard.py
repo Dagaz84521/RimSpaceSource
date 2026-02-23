@@ -9,12 +9,13 @@ import uuid
 
 # Goal 模块
 class Goal:
-    def __init__(self, target_actor, property_type, key, operator, value):
+    def __init__(self, target_actor, property_type, key, operator, value, exclude_actor=None):
         self.target_actor = target_actor # 要检查的Actor的状态，比如"WorkStation"，"CultivateChamber_1"等
         self.property_type = property_type # 要查的那个状态，比如"Inventory", "TaskList"，"CultivateInfo"等
         self.key = key # 具体的键，比如"TaskID"，"CutivatePhase",  "ItemID"等
         self.operator = operator # 比较操作符，比如"==", "!=", ">", "<"等
         self.value = value # 目标值
+        self.exclude_actor = exclude_actor # 新增：用于在计算时排除特定的 Actor
     
     def is_satisfied(self, game_state_snapshot)->bool:
         # 全局库存检查（目标对象为 "Global"时）
@@ -23,10 +24,14 @@ class Goal:
             actors_list = game_state_snapshot.get("Environment", {}).get("Actors", [])
             for a in actors_list:
                 if a.get("Type") == "Character": 
-                    continue # 排除角色背包防死锁
+                    continue 
+                
+                # 2. 新增逻辑：如果配置了 exclude_actor，则跳过该设施的库存
+                if self.exclude_actor and a.get("ActorName") == self.exclude_actor:
+                    continue
+                    
                 inv = a.get("Inventory", {})
                 if isinstance(inv, dict) and self.key is not None:
-                    # 假设简单字典，如果你的库存有嵌套需使用之前写的嵌套解析
                     total += inv.get(str(self.key), 0)
             
             op = self.operator

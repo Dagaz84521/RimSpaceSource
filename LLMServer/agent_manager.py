@@ -30,11 +30,11 @@ class RimSpaceAgent:
         """
         # 1. 映射生理欲望
         # 假设游戏里 Energy 是 100-0 (100最精神)，我们需要反转为 Exhaustion 0-100 (100最累)
-        game_energy = char_data.get("CharacterStats", {}).get("Energ", 100)
+        game_energy = char_data.get("CharacterStats", {}).get("Energy", 100)
         self.desires["exhaustion"] = max(0, 100 - game_energy)
         
         # 假设游戏里 Hunger 是 0-100 (100最饱)，我们需要反转为 Hunger Desire 0-100 (100最饿)
-        game_food = char_data.get("CharacterStats", {}).get("Hunge", 100)
+        game_food = char_data.get("CharacterStats", {}).get("Hunger", 100)
         self.desires["hunger"] = max(0, 100 - game_food)
 
         # 2. 映射社会欲望 (Sense of Duty)
@@ -58,7 +58,7 @@ class RimSpaceAgent:
         
         # 获取任务列表字符串 (修正：从服务器端 Blackboard 获取，而不是从请求数据中获取)
         relevant_tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
-        tasks = [self._format_task_for_prompt(t) for t in relevant_tasks]
+        tasks = [self._format_task_for_prompt(t, environment_data) for t in relevant_tasks]
         env_text = f"\n[Task Blackboard]: {', '.join(tasks) if tasks else 'Empty'}"
         
         # Planner 反馈信息
@@ -68,15 +68,34 @@ class RimSpaceAgent:
 
         return status_text + env_text
 
-    def _format_task_for_prompt(self, task):
-        """为 LLM 格式化任务描述，必要时补充参数"""
+    def _format_task_for_prompt(self, task, environment_data=None):
+        """为 LLM 格式化任务描述，必要时补充参数和前置条件信息"""
         desc = task.description
+        
+        # 补充参数信息 (Transport 任务)
         if "Transport" in desc and hasattr(task, "item_id"):
             item_id = getattr(task, "item_id", "")
             count = getattr(task, "count", "")
             source = getattr(task, "source", "")
             destination = getattr(task, "destination", "")
             desc += f" [item_id={item_id}, count={count}, source={source}, destination={destination}]"
+        
+        # 补充前置条件信息
+        if hasattr(task, "preconditions") and task.preconditions and environment_data:
+            unmet_conditions = []
+            for cond in task.preconditions:
+                wrapped_env = {"Environment": environment_data} if "Environment" not in environment_data else environment_data
+                if not cond.is_satisfied(wrapped_env):
+                    cond_str = f"{cond.target_actor}.{cond.property_type}[{cond.key}] {cond.operator} {cond.value}"
+                    unmet_conditions.append(cond_str)
+            
+            if unmet_conditions:
+                desc += f" [⚠ Preconditions: {', '.join(unmet_conditions)}]"
+            else:
+                desc += " [✓ Ready to Execute]"
+        elif hasattr(task, "preconditions") and task.preconditions:
+            desc += f" [Preconditions: {len(task.preconditions)} items]"
+        
         return desc
 
     def make_decision(self, char_data, environment_data):
@@ -128,16 +147,15 @@ class RimSpaceAgent:
         
         # 【新增】如果是 Transport 命令，从任务中补充缺失的参数
         if command_type == "Transport":
-            # 从黑板中找到相关的搬运任务，提取 item_id, source, destination, count
+            # 从黑板中找到相关的搬运任务，提取 item_id, source, destination（不再需要count）
             relevant_tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
             transport_task = next((t for t in relevant_tasks if "Transport" in t.description), None)
             
             if transport_task and hasattr(transport_task, 'item_id'):
-                # 补充参数
+                # 补充参数（移除count参数）
                 decision_json["item_id"] = transport_task.item_id
                 decision_json["target_name"] = transport_task.source
                 decision_json["aux_name"] = transport_task.destination
-                decision_json["count"] = transport_task.count
         
         plan_result = self.planner.generate_plan(self.name, command_type, decision_json, environment_data)
         

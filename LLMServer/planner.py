@@ -7,8 +7,8 @@ from game_data_manager import GameDataManager
 
 # === 基础指令构造函数 ===
 def cmd_move(target): return {"CommandType": "Move", "TargetName": target, "ParamID": 0, "Count": 0}
-def cmd_take(item_id, count): return {"CommandType": "Take", "TargetName": "", "ParamID": int(item_id), "Count": int(count)}
-def cmd_put(item_id, count): return {"CommandType": "Put", "TargetName": "", "ParamID": int(item_id), "Count": int(count)}
+def cmd_take(item_id): return {"CommandType": "Take", "TargetName": "", "ParamID": int(item_id), "Count": 1}
+def cmd_put(item_id): return {"CommandType": "Put", "TargetName": "", "ParamID": int(item_id), "Count": 1}
 def cmd_use(param_id): return {"CommandType": "Use", "TargetName": "", "ParamID": int(param_id), "Count": 0}
 def cmd_wait(minutes): return {"CommandType": "Wait", "TargetName": "", "ParamID": int(minutes), "Count": 0}
 
@@ -125,7 +125,7 @@ class Planner:
         if source and current_loc != source:
             plan.append(cmd_move(source))
             current_loc = source
-        plan.append(cmd_take(food_id, 1))
+        plan.append(cmd_take(food_id))
         table = self.find_actor_by_type("Table", env)
         if table:
             if current_loc != table:
@@ -160,7 +160,6 @@ class Planner:
         source = params.get("target_name")
         destination = params.get("aux_name")
         item_id = params.get("item_id")
-        count = params.get("count", 1)
         if not source or not destination or not item_id:
             return PlanResult(False, [cmd_wait(2)], "Incomplete parameters for transport.")
         current_loc = params.get("current_location")
@@ -168,12 +167,12 @@ class Planner:
         if current_loc != source:
             plan.append(cmd_move(source))
             current_loc = source
-        plan.append(cmd_take(item_id, count))
+        plan.append(cmd_take(item_id))
         if destination != current_loc:
             plan.append(cmd_move(destination))
             current_loc = destination
-        plan.append(cmd_put(item_id, count))
-        return PlanResult(True, plan, f"Transporting {count} items.")
+        plan.append(cmd_put(item_id))
+        return PlanResult(True, plan, "Transporting 1 item.")
     
     def _plan_wait(self, agent_name, params, env) -> PlanResult:
         minutes = params.get("minutes", 10)
@@ -182,7 +181,8 @@ class Planner:
     def _plan_craft(self, agent_name, params, env) -> PlanResult:
         product_name = params.get("target_name")
         product_id = self.item_name_to_id.get(product_name)
-        target_count = params.get("count", 1)
+        # 一次只能生产1个物品（移除count参数）
+        target_count = 1
         # print(f"[Planner] Crafting request: {product_name} x{target_count} (ID: {product_id})")
         if not product_id:
             return PlanResult(False, [cmd_wait(2)], f"Unknown product: {product_name}")
@@ -219,16 +219,22 @@ class Planner:
                     # 虽然总数够，但在某些不可达的地方？或者逻辑死角
                     return PlanResult(False, [cmd_wait(5)], f"Could not locate {ing_id} in containers.")
                 
-                # 生成搬运指令
+                # 生成搬运指令：一次搬运一个物品
                 if source != target_facility:
-                    if current_loc != source:
-                        plan.append(cmd_move(source))
-                        current_loc = source
-                    plan.append(cmd_take(ing_id, needed_count))
-                    if current_loc != target_facility:
-                        plan.append(cmd_move(target_facility))
-                        current_loc = target_facility
-                    plan.append(cmd_put(ing_id, needed_count))
+                    for item_idx in range(needed_count):
+                        # 每次搬运一个物品
+                        if current_loc != source:
+                            plan.append(cmd_move(source))
+                            current_loc = source
+                        plan.append(cmd_take(ing_id))
+                        if current_loc != target_facility:
+                            plan.append(cmd_move(target_facility))
+                            current_loc = target_facility
+                        plan.append(cmd_put(ing_id))
+                        # 如果还有更多物品需要搬运，返回source
+                        if item_idx < needed_count - 1:
+                            plan.append(cmd_move(source))
+                            current_loc = source
 
         # 如果有任何缺失的原料，返回失败并等待
         if missing_resources:
@@ -366,6 +372,7 @@ class Planner:
     def analyze_and_post_crafting_task(self, facility_name, task_id, count, environment):
         """
         Planner 统一解析制造需求：生成主任务，并一口气铺开整个供应链
+        【原子化修改】：前置条件按“单次配方需求”生成，供应链按“总需求”铺开
         """
         # 1. 明确最终目标 (Goal)
         goal_craft = Goal(
@@ -373,7 +380,7 @@ class Planner:
             property_type="TaskList",
             key=str(task_id),
             operator="<=",
-            value=0
+            value=0  # 当该设施中该配方任务队列清空时，目标才算彻底完成
         )
         
         # 2. 查阅配方，构建先决条件
@@ -383,20 +390,23 @@ class Planner:
         if recipe:
             for ing in recipe.get("Ingredients", []):
                 ing_id = str(ing["ItemID"])
-                ing_count = ing["Count"] * count
                 
-                # 制造的先决条件：当前设施里必须有足够的原料
+                # 区分【单次消耗】和【总计需求】
+                single_count = ing["Count"]           # 做 1 个需要的量
+                total_count = ing["Count"] * count    # 整个订单需要的总量
+                
+                # 制造的先决条件：当前设施里只要满足【做 1 个】的原料，即可开工
                 cond_ws_has_item = Goal(
                     target_actor=facility_name,
                     property_type="Inventory",
                     key=ing_id,
                     operator=">=",
-                    value=ing_count
+                    value=single_count  # 【核心修改】：替换原来的 total_count
                 )
                 preconditions.append(cond_ws_has_item)
                 
-                # 【核心】：直接递归铺开该原料的供应链（搬运 + 生产）
-                self._build_supply_chain(ing_id, ing_count, facility_name, environment)
+                # 【供应链铺设】：依然要按总需求量去向系统要货
+                self._build_supply_chain(ing_id, total_count, facility_name, environment)
                 
         # 3. 创建并发布主任务
         item_name = self.item_map.get(str(task_id), {}).get("ItemName", f"Item_{task_id}")
@@ -410,33 +420,31 @@ class Planner:
         )
         self.blackboard.post_task(task_craft)
 
-
     def _build_supply_chain(self, item_id, amount_needed, target_facility, environment):
         """
         全自动声明式供应链：同时发布搬运和生产任务，由系统状态自动解锁
         """
         item_name = self.item_map.get(str(item_id), {}).get("ItemName", f"Item_{item_id}")
-        
-        # 包装环境数据以符合 Goal.is_satisfied 的期望格式
         wrapped_env = {"Environment": environment} if "Environment" not in environment else environment
         
-        # 定义核心状态判定
+        # 任务本身的【最终目标】依然是总数
         goal_facility_has_item = Goal(target_actor=target_facility, property_type="Inventory", key=str(item_id), operator=">=", value=amount_needed)
         cond_global_has_item = Goal(target_actor="Global", property_type="Inventory", key=str(item_id), operator=">=", value=amount_needed)
         
+        # 【新增】：搬运的前提，只要全局有 1 个（或单次用量）就能开工！
+        cond_global_has_single = Goal(target_actor="Global", property_type="Inventory", key=str(item_id), operator=">=", value=1, exclude_actor=target_facility)
+        
         # ==========================================
-        # 任务 1：搬运任务 (解决物资在别处的问题)
+        # 任务 1：搬运任务 
         # ==========================================
-        # 如果设施里还没货，就把搬运任务挂上去
         if not goal_facility_has_item.is_satisfied(wrapped_env):
             task_transport = BlackboardTask(
                 description=f"System Request: Transport {item_name} (To {target_facility})",
-                goal=goal_facility_has_item, # 搬运的终点是设施有货
+                goal=goal_facility_has_item, 
                 priority=5,
-                required_skill=None,  # 任何人都能搬
-                preconditions=[cond_global_has_item] # 【关键】：前提是全局有货
+                required_skill=None,  
+                preconditions=[cond_global_has_single] # 【修复点 1】：搬运任务不再等待全局凑齐总数
             )
-            # 附加元数据给动作执行层
             task_transport.item_id = item_id
             task_transport.source = "Storage"
             task_transport.destination = target_facility
@@ -444,9 +452,8 @@ class Planner:
             self.blackboard.post_task(task_transport)
             
         # ==========================================
-        # 任务 2：生产任务 (解决全地图都没货的问题)
+        # 任务 2：生产任务 
         # ==========================================
-        # 如果连全局都没货，就把生产任务也挂上去
         if not cond_global_has_item.is_satisfied(wrapped_env):
             recipe = self.product_to_recipe.get(str(item_id))
             skill_name = None
@@ -456,23 +463,25 @@ class Planner:
                 skill_name = next(iter(recipe.get("RequiredSkill", {}))) if recipe.get("RequiredSkill") else None
                 produce_facility = recipe.get("RequiredFacility", "WorkStation")
                 
-                # 递归处理二级原料（例如做衣服需要布，做布还需要种棉花）
                 for sub_ing in recipe.get("Ingredients", []):
                     sub_id = str(sub_ing["ItemID"])
-                    sub_count = sub_ing["Count"] * amount_needed
                     
-                    # 生产的前提：全局必须有二级原料
+                    # 【修复点 2】：分离单次需求和总需求
+                    single_sub_count = sub_ing["Count"]           # 制作 1 个所需
+                    total_sub_count = sub_ing["Count"] * amount_needed  # 总计所需
+                    
+                    # 生产的前提：全局只要有【做 1 个】的二级原料，直接开工
                     produce_preconds.append(
-                        Goal(target_actor="Global", property_type="Inventory", key=sub_id, operator=">=", value=sub_count)
+                        Goal(target_actor="Global", property_type="Inventory", key=sub_id, operator=">=", value=single_sub_count)
                     )
-                    # 递归铺展二级原料的搬运和生产
-                    self._build_supply_chain(sub_id, sub_count, produce_facility, environment)
+                    # 递归供应链时，必须继续索要总需求
+                    self._build_supply_chain(sub_id, total_sub_count, produce_facility, environment)
                     
             task_produce = BlackboardTask(
                 description=f"System Request: Produce {item_name}",
-                goal=cond_global_has_item, # 生产的终点是全局有货
+                goal=cond_global_has_item, 
                 priority=6,
                 required_skill=skill_name,
-                preconditions=produce_preconds
+                preconditions=produce_preconds # 使用分离后的单次条件
             )
             self.blackboard.post_task(task_produce)

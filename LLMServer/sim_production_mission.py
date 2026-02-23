@@ -351,6 +351,7 @@ def build_default_world() -> Dict:
                     "ActorName": "Storage",
                     "ActorType": "EInteractionType::EAT_None",
                     "Inventory": {
+                        "1001": 10, # Cotton
                         "1002": 10, # Corn
                     },
                 },

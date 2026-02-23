@@ -136,9 +136,9 @@ def _print_blackboard_tasks(environment=None) -> None:
         print("[Blackboard] 任务列表:")
         
         # 包装 environment 以符合 Goal.is_satisfied 的期望格式
-        # wrapped_env = None
-        # if environment:
-        #     wrapped_env = {"Environment": environment} if "Environment" not in environment else environment
+        wrapped_env = None
+        if environment:
+            wrapped_env = {"Environment": environment} if "Environment" not in environment else environment
         
         # 构建task_id到任务的映射
         # task_map = {t.task_id: t for t in tasks}
@@ -155,15 +155,25 @@ def _print_blackboard_tasks(environment=None) -> None:
             #     if current is not None:
             #         goal_status = f" [Goal: {current}/{target}]"
             
-            # 追加依赖信息
-            # prep_status = ""
-            # if hasattr(task, "preconditions") and task.preconditions and wrapped_env:
-            #     unmet_count = sum(1 for cond in task.preconditions if not cond.is_satisfied(wrapped_env))
-            #     if unmet_count > 0:
-            #         prep_status = f" [Preconditions: {unmet_count} unmet]"
+            # 追加前置条件信息
+            prep_status = ""
+            if hasattr(task, "preconditions") and task.preconditions and wrapped_env:
+                unmet_conditions = []
+                for cond in task.preconditions:
+                    if not cond.is_satisfied(wrapped_env):
+                        # 格式：Actor.Property[Key] operator value
+                        cond_str = f"{cond.target_actor}.{cond.property_type}[{cond.key}] {cond.operator} {cond.value}"
+                        unmet_conditions.append(cond_str)
+                
+                if unmet_conditions:
+                    prep_status = f" [Preconditions Unmet: {', '.join(unmet_conditions)}]"
+                else:
+                    prep_status = " [✓ All Preconditions Met]"
+            elif hasattr(task, "preconditions") and task.preconditions:
+                prep_status = f" [Preconditions: {len(task.preconditions)} items]"
             
             # print(f"    {idx}. [{skill}] {desc}{goal_status}{prep_status}")
-            print(f"    {idx}. [{skill}] {desc}")
+            print(f"    {idx}. [{skill}] {desc}{prep_status}")
 
 
 # ========== 数据加载辅助函数 ==========
@@ -301,7 +311,7 @@ def get_instruction():
             current_char_data,
             environment
         )
-        print(f"[决策] {decision}")
+        print(f"[{character_name} 决策] {decision}")
         return jsonify(decision), 200
         # 目前返回简单的Wait指令
         # response = create_wait_command(
