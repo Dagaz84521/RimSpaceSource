@@ -1,0 +1,90 @@
+{
+  "Storages": [
+    {
+      "ActorName": "Storage",
+      "Items": [
+        { "ItemID": 1001, "Count": 10 },
+        { "ItemID": 1002, "Count": 50 }
+      ]
+    }
+  ],
+  "WorkStations": [
+    {
+      "ActorName": "WorkStation_1",
+      "Tasks": [
+        { "TaskID": 2001, "Quantity": 10 }
+      ]
+    }
+  ],
+  "CultivateChambers": [
+    {
+      "ActorName": "CultivateChamber_1",
+      "PlantedCropID": 1001
+    },
+    {
+      "ActorName": "CultivateChamber_2",
+      "PlantedCropID": 1001
+    },
+    {
+      "ActorName": "CultivateChamber_3",
+      "PlantedCropID": 1002
+    },
+    {
+      "ActorName": "CultivateChamber_4",
+      "PlantedCropID": 1002
+    }
+  ],
+  "Characters": [
+    {
+      "CharacterName": "Farmer",
+      "Profession": "Farmer",
+      "AssignedBedName": "Bed_1",
+      "SpawnLocation": { "X": 2100.0, "Y": 2000.0, "Z": 90.0 },
+      "Stats": {
+        "Hunger": 100.0,
+        "MaxHunger": 100.0,
+        "Energy": 100.0,
+        "MaxEnergy": 100.0
+      },
+      "Skills" :{
+        "bCanCook": false,
+        "bCanFarm": true,
+        "bCanCraft": false
+      }
+    },
+    {
+      "CharacterName": "Crafter",
+      "Profession": "Crafter",
+      "AssignedBedName": "Bed_2",
+      "SpawnLocation": { "X": 2100.0, "Y": 2000.0, "Z": 90.0 },
+      "Stats": {
+        "Hunger": 100.0,
+        "MaxHunger": 100.0,
+        "Energy": 100.0,
+        "MaxEnergy": 100.0
+      },
+      "Skills" :{
+        "bCanCook": false,
+        "bCanFarm": false,
+        "bCanCraft": true
+      }
+    },
+    {
+      "CharacterName": "Chef",
+      "Profession": "Chef",
+      "AssignedBedName": "Bed_3",
+      "SpawnLocation": { "X": 2100.0, "Y": 2000.0, "Z": 90.0 },
+      "Stats": {
+        "Hunger": 100.0,
+        "MaxHunger": 100.0,
+        "Energy": 100.0,
+        "MaxEnergy": 100.0
+      },
+      "Skills" :{
+        "bCanCook": true,
+        "bCanFarm": false,
+        "bCanCraft": false
+      }
+    }
+  ]
+}

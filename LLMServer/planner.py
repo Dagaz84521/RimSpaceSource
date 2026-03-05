@@ -386,6 +386,9 @@ class Planner:
         # 2. 查阅配方，构建先决条件
         preconditions = []
         recipe = self.product_to_recipe.get(str(task_id))
+        required_skill = None
+        if recipe and recipe.get("RequiredSkill"):
+            required_skill = next(iter(recipe.get("RequiredSkill", {})))
         
         if recipe:
             for ing in recipe.get("Ingredients", []):
@@ -415,10 +418,62 @@ class Planner:
         task_craft = BlackboardTask(
             description=task_desc,
             goal=goal_craft,
-            required_skill="canCraft",
+            required_skill=required_skill,
             preconditions=preconditions
         )
         self.blackboard.post_task(task_craft)
+
+    def ensure_min_stock(self, item_id, min_count, target_facility, environment):
+        """确保全局库存达到下限，不足时发布生产任务"""
+        if environment is None:
+            return
+        if not item_id or min_count <= 0:
+            return
+
+        total_stock = self.get_total_item_count(item_id, environment)
+        if total_stock >= min_count:
+            return
+
+        recipe = self.product_to_recipe.get(str(item_id))
+        if not recipe:
+            return
+
+        required_skill = None
+        if recipe.get("RequiredSkill"):
+            required_skill = next(iter(recipe.get("RequiredSkill", {})))
+
+        preconditions = []
+        for ing in recipe.get("Ingredients", []):
+            ing_id = str(ing["ItemID"])
+            single_count = ing["Count"]
+            preconditions.append(
+                Goal(
+                    target_actor="Global",
+                    property_type="Inventory",
+                    key=ing_id,
+                    operator=">=",
+                    value=single_count
+                )
+            )
+            self._build_supply_chain(ing_id, single_count * min_count, target_facility, environment)
+
+        item_name = self.item_map.get(str(item_id), {}).get("ItemName", f"Item_{item_id}")
+        goal_stock = Goal(
+            target_actor="Global",
+            property_type="Inventory",
+            key=str(item_id),
+            operator=">=",
+            value=min_count
+        )
+        task_desc = f"Maintain stock: {item_name} >= {min_count}"
+        task_produce = BlackboardTask(
+            description=task_desc,
+            goal=goal_stock,
+            priority=7,
+            required_skill=required_skill,
+            preconditions=preconditions
+        )
+        self.blackboard.post_task(task_produce)
 
     def _build_supply_chain(self, item_id, amount_needed, target_facility, environment):
         """

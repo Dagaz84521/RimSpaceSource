@@ -5,12 +5,15 @@ LLM服务器 - 精简版，用于重构
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
+from datetime import datetime
 from typing import Dict, Optional
 from agent_manager import RimSpaceAgent
 from blackboard import Blackboard, BlackboardTask, Goal
 from rimspace_enum import EInteractionType, ECultivatePhase
 from planner import Planner
+from config import MEAL_MIN_STOCK
 from game_data_manager import GameDataManager
+from perceiver import perceive_environment_tasks
 import os
 import itemid_to_name
 
@@ -19,6 +22,12 @@ CORS(app)
 
 # 数据文件路径
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "Data")
+LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "Log")
+os.makedirs(LOG_DIR, exist_ok=True)
+_server_log_path = os.path.join(
+    LOG_DIR,
+    f"Server_{datetime.now().strftime('%y%m%d%H-%M-%S')}.log",
+)
 
 # 游戏状态缓存
 game_state_cache: Dict = {}
@@ -30,65 +39,16 @@ Blackboard_Instance = Blackboard()
 Global_Planner = Planner(Blackboard_Instance)
 
 # 一些可能会删除的测试代码
-def perceive_environment_tasks(environment_data):
-    """
-    感知层：扫描环境中的 Actor 状态，自动生成隐式任务并注入到黑板中。
-    """
-    # 获取环境中的所有 Actor
-    actors = environment_data.get("Actors", [])
-    if isinstance(actors, dict): # 处理一下数据结构可能的不一致（列表或字典）
-        actors = list(actors.values()) # 如果是 {"ActorName": {...}} 的形式
-    for actor in actors:
-        actor_name = actor.get("ActorName", "")
-        actor_type = actor.get("ActorType", "")
-        # print(f"[感知] 处理 Actor: {actor_name} (类型: {actor_type})")
-        if actor_type == EInteractionType.CultivateChamber.value:
-            # 检查培养舱的状态
-            cultivate_info = actor.get("CultivateInfo", {})
-            cultivate_phase = cultivate_info.get("CurrentPhase", "")
-            if cultivate_phase == ECultivatePhase.WaitingToPlant.value:
-                cultivate_type = cultivate_info.get("TargetCultivateType", "")
-                cultivate_type_str = cultivate_type.replace("ECultivateType::ECT_", "")
-                goal = Goal(
-                    target_actor=actor_name,
-                    property_type="CultivateInfo",
-                    key="CurrentPhase",
-                    operator="==",
-                    value=ECultivatePhase.Growing.value
-                )
-                task = BlackboardTask(
-                    description=f"Plant {cultivate_type_str} in {actor_name}",
-                    goal = goal,
-                    required_skill = "canFarm"
-                )
-                Blackboard_Instance.post_task(task)
-            elif cultivate_phase == ECultivatePhase.ReadyToHarvest.value:
-                cultivate_type = cultivate_info.get("CurrentCultivateType", "")
-                cultivate_type_str = cultivate_type.replace("ECultivateType::ECT_", "")
-                goal = Goal(
-                    target_actor=actor_name,
-                    property_type="CultivateInfo",
-                    key="CurrentPhase",
-                    operator="==",
-                    value=ECultivatePhase.WaitingToPlant.value
-                )
-                task = BlackboardTask(
-                    description=f"Harvest {cultivate_type_str} from {actor_name}",
-                    goal = goal,
-                    required_skill = "canFarm"
-                )
-                Blackboard_Instance.post_task(task)
-        elif actor_type == EInteractionType.WorkStation.value:
-            task_list = actor.get("TaskList", {})
-            for task_id, count in task_list.items():
-                # 【修改点】：感知层不再构建 Goal 和 Preconditions，
-                # 只是单纯地把“需求”抛给 Planner 进行统一调度和拆解。
-                Global_Planner.analyze_and_post_crafting_task(
-                    facility_name=actor_name,
-                    task_id=task_id,
-                    count=count,
-                    environment=environment_data
-                )
+def _server_log(message: str) -> None:
+    """Append message to server log file (blackboard/decision only)."""
+    try:
+        with open(_server_log_path, "a", encoding="utf-8") as handle:
+            handle.write(message + "\n")
+    except Exception:
+        pass
+
+
+# perceive_environment_tasks 已移动到 perceiver.py
 
 def _get_goal_current_value(goal, environment):
     """从环境中获取Goal的当前值，支持各种属性类型（Inventory/TaskList/CultivateInfo）"""
@@ -131,9 +91,13 @@ def _print_blackboard_tasks(environment=None) -> None:
     """打印黑板任务到控制台，包括Goal完成情况和依赖关系"""
     tasks = Blackboard_Instance.tasks
     if not tasks:
-        print("[Blackboard] 任务列表: (empty)")
+        line = "[Blackboard] 任务列表: (empty)"
+        print(line)
+        _server_log(line)
     else:
-        print("[Blackboard] 任务列表:")
+        header = "[Blackboard] 任务列表:"
+        print(header)
+        _server_log(header)
         
         # 包装 environment 以符合 Goal.is_satisfied 的期望格式
         wrapped_env = None
@@ -173,7 +137,9 @@ def _print_blackboard_tasks(environment=None) -> None:
                 prep_status = f" [Preconditions: {len(task.preconditions)} items]"
             
             # print(f"    {idx}. [{skill}] {desc}{goal_status}{prep_status}")
-            print(f"    {idx}. [{skill}] {desc}{prep_status}")
+            line = f"    {idx}. [{skill}] {desc}{prep_status}"
+            print(line)
+            _server_log(line)
 
 
 # ========== 数据加载辅助函数 ==========
@@ -291,9 +257,9 @@ def get_instruction():
         current_char_data = next((c for c in characters_data if c.get("CharacterName") == character_name), {})
         
         # ==========================================
-        # 先更新黑板以移除已完成任务，再感知生成新任务
+        # 先更新黑板以移除已完成任务，再交给感知器生成新任务
         Blackboard_Instance.update(data)
-        perceive_environment_tasks(environment)
+        perceive_environment_tasks(environment, Blackboard_Instance, Global_Planner, MEAL_MIN_STOCK)
         _print_blackboard_tasks(environment)
         # ==========================================
         
@@ -311,7 +277,9 @@ def get_instruction():
             current_char_data,
             environment
         )
-        print(f"[{character_name} 决策] {decision}")
+        line = f"[{character_name} 决策] {decision}"
+        print(line)
+        _server_log(line)
         return jsonify(decision), 200
         # 目前返回简单的Wait指令
         # response = create_wait_command(

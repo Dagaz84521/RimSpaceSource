@@ -68,6 +68,85 @@ class RimSpaceAgent:
 
         return status_text + env_text
 
+    def generate_world_state(self, environment_data):
+        """生成当前世界状态信息，显示各个地点的物品库存"""
+        world_state = "\n【各地点物品库存】\n"
+        
+        try:
+            actors = environment_data.get("Actors", [])
+            
+            for actor in actors:
+                actor_name = actor.get("ActorName", "Unknown")
+                inventory = actor.get("Inventory", {})
+                
+                # 跳过空库存的地点，除非是重要地点（如Storage、Stove）
+                if not inventory and actor_name not in ["Storage", "Stove", "WorkStation"]:
+                    continue
+                
+                # 格式化库存信息
+                if inventory:
+                    item_list = []
+                    for item_id, count in inventory.items():
+                        # 从itemid_to_name映射获取物品名称
+                        item_name = self._get_item_name(item_id)
+                        item_list.append(f"{item_name}({item_id}): {count}件")
+                    
+                    world_state += f"  - {actor_name}: {', '.join(item_list)}\n"
+                else:
+                    world_state += f"  - {actor_name}: 【空】\n"
+            
+            # 添加培养舱的状态
+            world_state += "\n【培养舱状态】\n"
+            for actor in actors:
+                actor_name = actor.get("ActorName", "")
+                if "CultivateChamber" in actor_name:
+                    cultivate_info = actor.get("CultivateInfo", {})
+                    current_phase = cultivate_info.get("CurrentPhase", "Unknown")
+                    cultivate_type = cultivate_info.get("TargetCultivateType", "None")
+                    growth_progress = cultivate_info.get("GrowthProgress", 0)
+                    growth_max = cultivate_info.get("GrowthMaxProgress", 24)
+                    
+                    phase_display = self._parse_phase(current_phase)
+                    crop_name = self._parse_cultivate_type(cultivate_type)
+                    
+                    world_state += f"  - {actor_name}: [{phase_display}] {crop_name} (进度: {growth_progress}/{growth_max})\n"
+            
+            return world_state
+        except Exception as e:
+            return f"【世界状态获取失败】: {str(e)}"
+
+    def _get_item_name(self, item_id):
+        """根据物品ID获取物品名称"""
+        item_id_str = str(item_id)
+        # 简单的ID到名称的映射
+        item_names = {
+            "1001": "棉花(Cotton)",
+            "1002": "玉米(Corn)",
+            "2001": "棉线(Thread)",
+            "2002": "布料(Cloth)",
+            "2003": "套餐(Meal)",
+            "3001": "衣服(Coat)"
+        }
+        return item_names.get(item_id_str, f"物品({item_id})")
+
+    def _parse_phase(self, phase_str):
+        """解析培养舱的生长阶段"""
+        phase_map = {
+            "ECultivatePhase::ECP_WaitingToPlant": "等待种植",
+            "ECultivatePhase::ECP_Growing": "生长中",
+            "ECultivatePhase::ECP_ReadyToHarvest": "准备收获"
+        }
+        return phase_map.get(phase_str, phase_str)
+
+    def _parse_cultivate_type(self, cultivate_type_str):
+        """解析作物类型"""
+        type_map = {
+            "ECultivateType::ECT_Cotton": "棉花",
+            "ECultivateType::ECT_Corn": "玉米",
+            "ECultivateType::ECT_None": "无"
+        }
+        return type_map.get(cultivate_type_str, cultivate_type_str)
+
     def _format_task_for_prompt(self, task, environment_data=None):
         """为 LLM 格式化任务描述，必要时补充参数和前置条件信息"""
         desc = task.description
@@ -124,10 +203,12 @@ class RimSpaceAgent:
 
         # 2. 构建 Prompt
         specific_profile = self.load_profile(self.profession)
+        world_state = self.generate_world_state(environment_data)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             profession=self.profession,
             name=self.name,
-            specific_profile=specific_profile
+            specific_profile=specific_profile,
+            world_state=world_state
         )
         user_context = self.generate_observation_text(char_data, environment_data)
         
