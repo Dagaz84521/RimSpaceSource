@@ -187,7 +187,11 @@ class Blackboard:
                 g.key == task.goal.key and
                 g.operator == task.goal.operator and
                 g.value == task.goal.value):
-                # print(f"[Blackboard] 任务已存在，跳过添加: {task.description}")
+                # 重复目标任务沿用原实例，但刷新描述与动态参数，避免 source/destination 过期
+                t.description = task.description
+                for field in ("item_id", "source", "destination", "count"):
+                    if hasattr(task, field):
+                        setattr(t, field, getattr(task, field))
                 return t  # 返回已存在的任务实例
         self.tasks.append(task)
         print(f"[Blackboard] 新任务已添加: {task.description}")

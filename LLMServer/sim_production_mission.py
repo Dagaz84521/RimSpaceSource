@@ -362,20 +362,21 @@ def build_default_world() -> Dict:
                     "Inventory": {
                     },
                     "TaskList": {
-                        "3001": 3,
+                        "3001": 1,
                     },
                 },
                 {
                     "ActorName": "Stove",
                     "ActorType": "EInteractionType::EAT_Stove",
                     "Inventory": {},
+                    "TaskList": {
+                        "2003": 1, # Meal
+                    },
                 },
                 {
                     "ActorName": "Storage",
                     "ActorType": "EInteractionType::EAT_Storage",
-                    "Inventory": {
-                        "1002": 3, # Corn
-                    },
+                    "Inventory": {},
                 },
                 {
                     "ActorName": "Table",

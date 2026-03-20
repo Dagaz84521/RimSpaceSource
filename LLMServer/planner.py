@@ -51,28 +51,23 @@ class Planner:
                     total += item_count
         return total
     
-    def find_actor_with_item(self, item_id, min_count, environment) -> str:
+    def find_actor_with_item(self, item_id, min_count, environment, exclude_actor=None) -> str:
         """寻找拥有指定数量物品的最佳容器"""
         str_id = str(item_id)
         actors = environment.get("Actors", [])
-        
-        # 优先查找 Storage
+
+        best_actor = None
+        best_count = -1
         for actor in actors:
-            if "Storage" in actor.get("ActorType", ""):
-                inv = actor.get("Inventory", {})
-                if isinstance(inv, dict):
-                    count = inv.get(str_id, 0)
-                    if isinstance(count, int) and count >= min_count:
-                        return actor.get("ActorName")
-        
-        # 其次查找任意容器
-        for actor in actors:
+            if exclude_actor and actor.get("ActorName") == exclude_actor:
+                continue
             inv = actor.get("Inventory", {})
             if isinstance(inv, dict):
                 count = inv.get(str_id, 0)
-                if isinstance(count, int) and count >= min_count:
-                    return actor.get("ActorName")
-        return None
+                if isinstance(count, int) and count >= min_count and count > best_count:
+                    best_count = count
+                    best_actor = actor.get("ActorName")
+        return best_actor
     
     def find_actor_by_type(self, type_suffix, environment) -> str:
         """寻找特定类型的设施 (如 'Stove', 'WorkStation')"""
@@ -202,6 +197,11 @@ class Planner:
         for ing in recipe.get("Ingredients", []):
             ing_id = str(ing["ItemID"])
             needed_count = ing["Count"] * target_count
+
+            # 优先使用目标设施内现有原料，避免不必要的搬运动作
+            facility_stock = self.get_actor_item_count(target_facility, ing_id, env)
+            if facility_stock >= needed_count:
+                continue
             
             # 检测全局库存
             total_stock = self.get_total_item_count(ing_id, env)
@@ -337,7 +337,8 @@ class Planner:
         else:
             # === 分支 B: 搬运任务 ===
             # print(f"[_trigger_system_supply] 全局库存充足，创建搬运任务")
-            full_desc = f"{task_signature_transport} (From Storage to {target_facility_name})"
+            source_actor = self.find_actor_with_item(item_id, 1, environment, exclude_actor=target_facility_name) or "Storage"
+            full_desc = f"{task_signature_transport} (From {source_actor} to {target_facility_name})"
             
             # 搬运的目标是：指定设施库存足够
             goal_transport = Goal(
@@ -357,7 +358,7 @@ class Planner:
             )
             
             new_task.item_id = item_id
-            new_task.source = "Storage"
+            new_task.source = source_actor
             new_task.destination = target_facility_name
             new_task.count = amount_needed
             # print(f"[_trigger_system_supply] 创建搬运任务: {full_desc}")
@@ -493,15 +494,16 @@ class Planner:
         # 任务 1：搬运任务 
         # ==========================================
         if not goal_facility_has_item.is_satisfied(wrapped_env):
+            source_actor = self.find_actor_with_item(item_id, 1, environment, exclude_actor=target_facility) or "Storage"
             task_transport = BlackboardTask(
-                description=f"System Request: Transport {item_name} (To {target_facility})",
+                description=f"System Request: Transport {item_name} (From {source_actor} To {target_facility})",
                 goal=goal_facility_has_item, 
                 priority=5,
                 required_skill=None,  
                 preconditions=[cond_global_has_single] # 【修复点 1】：搬运任务不再等待全局凑齐总数
             )
             task_transport.item_id = item_id
-            task_transport.source = "Storage"
+            task_transport.source = source_actor
             task_transport.destination = target_facility
             task_transport.count = amount_needed
             self.blackboard.post_task(task_transport)
