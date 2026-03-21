@@ -16,6 +16,15 @@ from game_data_manager import GameDataManager
 from perceiver import perceive_environment_tasks
 import os
 import itemid_to_name
+import sys
+
+
+def _ablation_mode() -> str:
+    return os.environ.get("RIMSPACE_ABLATION_MODE", "full").strip().lower()
+
+
+def _is_no_blackboard_mode() -> bool:
+    return _ablation_mode() == "no_blackboard"
 
 app = Flask(__name__)
 CORS(app)
@@ -24,16 +33,24 @@ CORS(app)
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "Data")
 LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "Log")
 os.makedirs(LOG_DIR, exist_ok=True)
-_server_log_path = os.path.join(
-    LOG_DIR,
-    f"Server_{datetime.now().strftime('%y%m%d%H-%M-%S')}.log",
-)
+_server_log_path = os.environ.get("RIMSPACE_SERVER_LOG_PATH", "").strip()
+if _server_log_path:
+    _server_log_path = os.path.abspath(_server_log_path)
+    os.makedirs(os.path.dirname(_server_log_path), exist_ok=True)
+else:
+    _server_log_path = os.path.join(
+        LOG_DIR,
+        f"Server_{datetime.now().strftime('%y%m%d%H-%M-%S')}.log",
+    )
 
 # 游戏状态缓存
 game_state_cache: Dict = {}
 
 # 黑板任务管理
 Blackboard_Instance = Blackboard()
+
+# no_blackboard 模式下：保持仅感知层任务输入，但每回合刷新任务
+NoBlackboard_Seeded = False
 
 # 全局Planner实例用于依赖分解
 Global_Planner = Planner(Blackboard_Instance)
@@ -46,6 +63,16 @@ def _server_log(message: str) -> None:
             handle.write(message + "\n")
     except Exception:
         pass
+
+
+def _safe_console_print(message: str) -> None:
+    """Print text safely on gbk/legacy consoles by replacing unsupported chars."""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        enc = sys.stdout.encoding or "utf-8"
+        safe = message.encode(enc, errors="replace").decode(enc, errors="replace")
+        print(safe)
 
 
 # perceive_environment_tasks 已移动到 perceiver.py
@@ -92,11 +119,11 @@ def _print_blackboard_tasks(environment=None) -> None:
     tasks = Blackboard_Instance.tasks
     if not tasks:
         line = "[Blackboard] 任务列表: (empty)"
-        print(line)
+        _safe_console_print(line)
         _server_log(line)
     else:
         header = "[Blackboard] 任务列表:"
-        print(header)
+        _safe_console_print(header)
         _server_log(header)
         
         # 包装 environment 以符合 Goal.is_satisfied 的期望格式
@@ -132,13 +159,13 @@ def _print_blackboard_tasks(environment=None) -> None:
                 if unmet_conditions:
                     prep_status = f" [Preconditions Unmet: {', '.join(unmet_conditions)}]"
                 else:
-                    prep_status = " [✓ All Preconditions Met]"
+                    prep_status = " [All Preconditions Met]"
             elif hasattr(task, "preconditions") and task.preconditions:
                 prep_status = f" [Preconditions: {len(task.preconditions)} items]"
             
             # print(f"    {idx}. [{skill}] {desc}{goal_status}{prep_status}")
             line = f"    {idx}. [{skill}] {desc}{prep_status}"
-            print(line)
+            _safe_console_print(line)
             _server_log(line)
 
 
@@ -257,10 +284,20 @@ def get_instruction():
         current_char_data = next((c for c in characters_data if c.get("CharacterName") == character_name), {})
         
         # ==========================================
-        # 先更新黑板以移除已完成任务，再交给感知器生成新任务
-        Blackboard_Instance.update(data)
-        perceive_environment_tasks(environment, Blackboard_Instance, Global_Planner, MEAL_MIN_STOCK)
-        _print_blackboard_tasks(environment)
+        # 消融模式控制：
+        # - full: 正常使用黑板（更新 + 感知）
+        # - no_blackboard: 仅使用感知层任务输入，不引入额外共享分解任务
+        global NoBlackboard_Seeded
+        if _is_no_blackboard_mode():
+            # no_blackboard: 每回合刷新感知任务，确保种植/收获等动态任务会随环境更新
+            Blackboard_Instance.update(data)
+            perceive_environment_tasks(environment, Blackboard_Instance, Global_Planner, MEAL_MIN_STOCK)
+            NoBlackboard_Seeded = True
+            _print_blackboard_tasks(environment)
+        else:
+            Blackboard_Instance.update(data)
+            perceive_environment_tasks(environment, Blackboard_Instance, Global_Planner, MEAL_MIN_STOCK)
+            _print_blackboard_tasks(environment)
         # ==========================================
         
         # print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")
@@ -294,7 +331,10 @@ def get_instruction():
     except Exception as e:
         import traceback
         # print(f"[错误] {e}")
+        tb = traceback.format_exc()
         traceback.print_exc()
+        _server_log(f"[GetInstruction ERROR] {type(e).__name__}: {e}")
+        _server_log(tb)
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -368,11 +408,17 @@ if __name__ == '__main__':
     # print("=" * 60)
     # print()
     
+    print(f"[Server] Ablation mode: {_ablation_mode()}")
+    print(f"[Server] Blackboard basic perceive: {os.environ.get('RIMSPACE_BB_BASIC_TASKS', '0')}")
+    print(f"[Server] Blackboard disable filter: {os.environ.get('RIMSPACE_BB_DISABLE_FILTER', '0')}")
+    debug_flag = os.environ.get("RIMSPACE_SERVER_DEBUG", "1").strip().lower() in {"1", "true", "yes", "on"}
+
     # 启动Flask服务器
     app.run(
         host='127.0.0.1',
         port=5000,
-        debug=True
+        debug=debug_flag,
+        use_reloader=debug_flag
     )
 
 

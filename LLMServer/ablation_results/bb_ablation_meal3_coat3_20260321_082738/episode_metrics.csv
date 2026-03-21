@@ -1,0 +1,2 @@
+mode,episode,success,rounds,total_commands,wait_commands,wait_rate,skill_errors,transport_no_item,transport_no_item_wait,intent_total,intent_errors,intent_accuracy
+full,1,1,29,87,11,0.12643678160919541,0,1,0,87,1,0.9885057471264368

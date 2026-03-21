@@ -1,0 +1,11 @@
+[
+  {
+    "mode": "full",
+    "episode": 1,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_082738\\server_full_ep001.log",
+    "success": 1,
+    "rounds": 29,
+    "wait_rate": 0.12643678160919541,
+    "intent_accuracy": 0.9885057471264368
+  }
+]

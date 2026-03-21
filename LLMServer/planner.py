@@ -40,16 +40,26 @@ class Planner:
         actors = environment.get("Actors", [])
         str_id = str(item_id)
         for actor in actors:
-            # 排除掉 Agent 自己的背包 (防止死锁计算)
-            if actor.get("Type") == "Character": 
-                continue
-                
             inv = actor.get("Inventory", {})
             if isinstance(inv, dict):
                 item_count = inv.get(str_id, 0)
                 if isinstance(item_count, int):
                     total += item_count
         return total
+
+    def _accumulate_item_requirements(self, item_id: str, amount_needed: int, requirement_map: Dict[str, int]):
+        """递归累积某物品及其下游原料的总需求。"""
+        key = str(item_id)
+        requirement_map[key] = requirement_map.get(key, 0) + int(amount_needed)
+
+        recipe = self.product_to_recipe.get(key)
+        if not recipe:
+            return
+
+        for ing in recipe.get("Ingredients", []):
+            sub_id = str(ing["ItemID"])
+            sub_total = int(ing["Count"]) * int(amount_needed)
+            self._accumulate_item_requirements(sub_id, sub_total, requirement_map)
     
     def find_actor_with_item(self, item_id, min_count, environment, exclude_actor=None) -> str:
         """寻找拥有指定数量物品的最佳容器"""
@@ -392,6 +402,13 @@ class Planner:
             required_skill = next(iter(recipe.get("RequiredSkill", {})))
         
         if recipe:
+            # 先把整条配方链的总需求递归计算出来，避免并行子链对同一原料低估需求
+            total_requirements: Dict[str, int] = {}
+            for ing in recipe.get("Ingredients", []):
+                ing_id = str(ing["ItemID"])
+                total_count = ing["Count"] * count
+                self._accumulate_item_requirements(ing_id, total_count, total_requirements)
+
             for ing in recipe.get("Ingredients", []):
                 ing_id = str(ing["ItemID"])
                 
@@ -410,7 +427,7 @@ class Planner:
                 preconditions.append(cond_ws_has_item)
                 
                 # 【供应链铺设】：依然要按总需求量去向系统要货
-                self._build_supply_chain(ing_id, total_count, facility_name, environment)
+                self._build_supply_chain(ing_id, total_count, facility_name, environment, total_requirements)
                 
         # 3. 创建并发布主任务
         item_name = self.item_map.get(str(task_id), {}).get("ItemName", f"Item_{task_id}")
@@ -476,10 +493,14 @@ class Planner:
         )
         self.blackboard.post_task(task_produce)
 
-    def _build_supply_chain(self, item_id, amount_needed, target_facility, environment):
+    def _build_supply_chain(self, item_id, amount_needed, target_facility, environment, requirement_map=None):
         """
         全自动声明式供应链：同时发布搬运和生产任务，由系统状态自动解锁
         """
+        item_id = str(item_id)
+        if requirement_map and item_id in requirement_map:
+            amount_needed = requirement_map[item_id]
+
         item_name = self.item_map.get(str(item_id), {}).get("ItemName", f"Item_{item_id}")
         wrapped_env = {"Environment": environment} if "Environment" not in environment else environment
         
@@ -532,7 +553,7 @@ class Planner:
                         Goal(target_actor="Global", property_type="Inventory", key=sub_id, operator=">=", value=single_sub_count)
                     )
                     # 递归供应链时，必须继续索要总需求
-                    self._build_supply_chain(sub_id, total_sub_count, produce_facility, environment)
+                    self._build_supply_chain(sub_id, total_sub_count, produce_facility, environment, requirement_map)
                     
             task_produce = BlackboardTask(
                 description=f"System Request: Produce {item_name}",

@@ -3,6 +3,58 @@ from config import SYSTEM_PROMPT_TEMPLATE, THRESHOLDS
 from llm_client import LLMClient
 from planner import Planner
 import os
+import re
+
+
+def _llm_visible_task_source() -> str:
+    # all | perceiver
+    return os.environ.get("RIMSPACE_LLM_TASK_SOURCE", "all").strip().lower()
+
+
+def _is_perceiver_task(task) -> bool:
+    return str(getattr(task, "source", "")).strip().lower() == "perceiver"
+
+
+def _is_no_blackboard_mode() -> bool:
+    return os.environ.get("RIMSPACE_ABLATION_MODE", "full").strip().lower() == "no_blackboard"
+
+
+def _format_failure_feedback_for_mode(feedback: str) -> str:
+    """Keep full-mode feedback untouched; simplify no_blackboard feedback to pure failure reasons."""
+    if not _is_no_blackboard_mode():
+        return feedback
+
+    text = str(feedback or "").strip()
+
+    # Remove planner-side supply wording in no_blackboard ablation.
+    text = text.replace("System supply tasks initiated. Please Wait.", "Execution failed.")
+    text = text.replace("Please Wait.", "")
+    text = text.replace("System supply tasks initiated.", "")
+
+    # Normalize duplicated spaces/punctuation after replacements.
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\s+\.", ".", text)
+
+    if not text:
+        text = "Execution failed."
+    return text
+
+
+def _extract_missing_resource_names(feedback: str):
+    text = str(feedback or "")
+    match = re.search(r"Resources Missing:\s*([^\.]+)", text, flags=re.IGNORECASE)
+    if not match:
+        return []
+    raw = match.group(1)
+    names = [p.strip() for p in raw.split(",") if p.strip()]
+    return names
+
+
+def _normalize_skill_name(skill_name: str) -> str:
+    s = str(skill_name or "").strip().lower()
+    if s.startswith("can"):
+        return s
+    return f"can{s}"
 
 class RimSpaceAgent:
     def __init__(self, name, profession, blackboard_instance):
@@ -39,7 +91,7 @@ class RimSpaceAgent:
 
         # 2. 映射社会欲望 (Sense of Duty)
         # 简单逻辑：每个任务增加 20 点压力
-        task_count = len(self.blackboard.get_executable_tasks(char_data, environment_data))
+        task_count = len(self._get_visible_tasks(char_data, environment_data))
         self.desires["duty"] = min(100, task_count * 20)
         #print(f"[状态更新] {self.name} - Hunger: {self.desires['hunger']}, Exhaustion: {self.desires['exhaustion']}, Duty: {self.desires['duty']}")
 
@@ -57,16 +109,168 @@ class RimSpaceAgent:
         """
         
         # 获取任务列表字符串 (修正：从服务器端 Blackboard 获取，而不是从请求数据中获取)
-        relevant_tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
+        relevant_tasks = self._get_visible_tasks(char_data, environment_data)
         tasks = [self._format_task_for_prompt(t, environment_data) for t in relevant_tasks]
         env_text = f"\n[Task Blackboard]: {', '.join(tasks) if tasks else 'Empty'}"
+
+        transport_hint = self._build_transport_constraint_hint(environment_data)
+        if transport_hint:
+            env_text += f"\n[Transport Constraint]: {transport_hint}"
         
         # Planner 反馈信息
         if self.feedback_buffer:
             env_text += f"\n[Planner Feedback]: {self.feedback_buffer}"
             self.feedback_buffer = ""  # 清空反馈缓冲区
 
+        if _is_no_blackboard_mode():
+            hint = self._build_no_blackboard_recipe_hint(char_data)
+            if hint:
+                env_text += f"\n[Recipe Hints]: {hint}"
+
         return status_text + env_text
+
+    def _build_transport_constraint_hint(self, environment_data):
+        """Explain that transportability depends on source inventory, not cultivate phase."""
+        actors = environment_data.get("Actors", [])
+        if not isinstance(actors, list):
+            return ""
+
+        pending_harvest = []
+        for actor in actors:
+            actor_name = actor.get("ActorName", "")
+            if "CultivateChamber" not in actor_name:
+                continue
+
+            cultivate_info = actor.get("CultivateInfo", {})
+            phase = cultivate_info.get("CurrentPhase", "")
+            inventory = actor.get("Inventory", {}) if isinstance(actor.get("Inventory", {}), dict) else {}
+            has_items = any((isinstance(v, int) and v > 0) for v in inventory.values())
+
+            if phase == "ECultivatePhase::ECP_ReadyToHarvest" and not has_items:
+                pending_harvest.append(actor_name)
+
+        if not pending_harvest:
+            return (
+                "Transport is valid only when source inventory has item count > 0. "
+                "Cultivate phase alone is not enough."
+            )
+
+        sample = ", ".join(pending_harvest[:3])
+        if len(pending_harvest) > 3:
+            sample += ", ..."
+        return (
+            "Transport is valid only when source inventory has item count > 0. "
+            f"{sample} are ReadyToHarvest but inventory is empty; Farmer must Harvest first."
+        )
+
+    def _get_agent_skills(self, char_data):
+        raw_skills = char_data.get("Skills", []) or char_data.get("CharacterSkills", [])
+        skills = {_normalize_skill_name(s) for s in raw_skills}
+        if skills:
+            return skills
+
+        # 回退: 某些输入缺失技能字段时，按职业推断
+        role = str(self.profession or "").strip().lower()
+        if role == "farmer":
+            return {"canfarm"}
+        if role == "crafter":
+            return {"cancraft"}
+        if role == "chef":
+            return {"cancook"}
+        return set()
+
+    def _build_no_blackboard_recipe_hint(self, char_data):
+        skills = self._get_agent_skills(char_data)
+        hints = []
+        if "cancraft" in skills:
+            hints.append("Thread <- Cotton x1 (Craft Thread at WorkStation)")
+            hints.append("Cloth <- Cotton x1 (Craft Cloth at WorkStation)")
+            hints.append("Coat <- Cloth x1 + Thread x1 (Craft Coat at WorkStation)")
+        if "cancook" in skills:
+            hints.append("Meal <- Corn x1 (Craft Meal at Stove)")
+        return "; ".join(hints)
+
+    def _build_missing_resource_guidance(self, formatted_feedback: str, char_data) -> str:
+        if not _is_no_blackboard_mode():
+            return ""
+
+        missing_names = _extract_missing_resource_names(formatted_feedback)
+        if not missing_names:
+            return ""
+
+        skills = self._get_agent_skills(char_data)
+        name_to_id = {
+            str(v).strip().lower(): str(k)
+            for k, v in self.planner.game_data.item_name_to_id.items()
+        }
+        item_map = self.planner.game_data.item_map
+        recipe_map = self.planner.game_data.product_to_recipe
+
+        suggestions = []
+        for name in missing_names:
+            item_id = name_to_id.get(str(name).strip().lower())
+            if not item_id:
+                continue
+
+            recipe = recipe_map.get(str(item_id))
+            if not recipe:
+                continue
+
+            required = {_normalize_skill_name(k) for k, v in recipe.get("RequiredSkill", {}).items() if v}
+            if required and skills.isdisjoint(required):
+                continue
+
+            ingredients = recipe.get("Ingredients", [])
+            if ingredients:
+                ing_desc = []
+                for ing in ingredients:
+                    ing_id = str(ing.get("ItemID"))
+                    ing_name = item_map.get(ing_id, {}).get("ItemName", ing_id)
+                    ing_count = ing.get("Count", 1)
+                    ing_desc.append(f"{ing_name} x{ing_count}")
+                ingredient_text = ", ".join(ing_desc)
+            else:
+                ingredient_text = "no ingredients"
+
+            suggestions.append(f"If capable, craft {name} first (needs: {ingredient_text}).")
+
+        if not suggestions:
+            return ""
+        return " ".join(suggestions)
+
+    def _resolve_item_id(self, item_name):
+        raw = str(item_name or "").strip()
+        if not raw:
+            return None
+
+        # 先尝试精确命中 ItemName（英文）
+        direct = self.planner.game_data.item_name_to_id.get(raw)
+        if direct is not None:
+            return direct
+
+        lower_raw = raw.lower()
+
+        # 兼容常见英文小写别名
+        english_alias = {
+            "cotton": "Cotton",
+            "corn": "Corn",
+            "thread": "Thread",
+            "cloth": "Cloth",
+            "meal": "Meal",
+            "coat": "Coat",
+        }
+        aliased = english_alias.get(lower_raw)
+        if aliased:
+            hit = self.planner.game_data.item_name_to_id.get(aliased)
+            if hit is not None:
+                return hit
+
+        # 兼容显示名（中文）
+        for item in self.planner.game_data.items:
+            if str(item.get("DisplayName", "")).strip() == raw:
+                return item.get("ItemID")
+
+        return None
 
     def generate_world_state(self, environment_data):
         """生成当前世界状态信息，显示各个地点的物品库存"""
@@ -108,8 +312,15 @@ class RimSpaceAgent:
                     
                     phase_display = self._parse_phase(current_phase)
                     crop_name = self._parse_cultivate_type(cultivate_type)
-                    
-                    world_state += f"  - {actor_name}: [{phase_display}] {crop_name} (进度: {growth_progress}/{growth_max})\n"
+
+                    chamber_inventory = actor.get("Inventory", {}) if isinstance(actor.get("Inventory", {}), dict) else {}
+                    chamber_total = sum(v for v in chamber_inventory.values() if isinstance(v, int) and v > 0)
+                    transport_state = "可搬运" if chamber_total > 0 else "无库存(不可搬运)"
+
+                    world_state += (
+                        f"  - {actor_name}: [{phase_display}] {crop_name} "
+                        f"(进度: {growth_progress}/{growth_max}, 仓内库存: {chamber_total}, {transport_state})\n"
+                    )
             
             return world_state
         except Exception as e:
@@ -169,13 +380,19 @@ class RimSpaceAgent:
                     unmet_conditions.append(cond_str)
             
             if unmet_conditions:
-                desc += f" [⚠ Preconditions: {', '.join(unmet_conditions)}]"
+                desc += f" [Preconditions-Unmet: {', '.join(unmet_conditions)}]"
             else:
-                desc += " [✓ Ready to Execute]"
+                desc += " [Preconditions-OK]"
         elif hasattr(task, "preconditions") and task.preconditions:
             desc += f" [Preconditions: {len(task.preconditions)} items]"
         
         return desc
+
+    def _get_visible_tasks(self, char_data, environment_data):
+        tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
+        if _llm_visible_task_source() == "perceiver":
+            tasks = [t for t in tasks if _is_perceiver_task(t)]
+        return tasks
 
     def make_decision(self, char_data, environment_data):
         """主决策循环"""
@@ -226,17 +443,33 @@ class RimSpaceAgent:
         # 将 decision_json 直接作为 params 传入
         decision_json["current_location"] = char_data.get("CurrentLocation")
         
-        # 【新增】如果是 Transport 命令，从任务中补充缺失的参数
+        # 【新增】如果是 Transport 命令，桥接 LLM 字段到 Planner 参数
         if command_type == "Transport":
+            # 1) 优先使用 LLM 已给出的字段
+            if not decision_json.get("target_name") and decision_json.get("source"):
+                decision_json["target_name"] = decision_json.get("source")
+
+            if not decision_json.get("aux_name") and decision_json.get("destination"):
+                decision_json["aux_name"] = decision_json.get("destination")
+
+            if decision_json.get("item_id") in (None, "", 0):
+                resolved_item_id = self._resolve_item_id(decision_json.get("item_name"))
+                if resolved_item_id is not None:
+                    decision_json["item_id"] = resolved_item_id
+
+            # 2) 若仍缺失，再尝试从黑板运输任务补齐
             # 从黑板中找到相关的搬运任务，提取 item_id, source, destination（不再需要count）
             relevant_tasks = self.blackboard.get_executable_tasks(char_data, environment_data)
             transport_task = next((t for t in relevant_tasks if "Transport" in t.description), None)
             
             if transport_task and hasattr(transport_task, 'item_id'):
-                # 补充参数（移除count参数）
-                decision_json["item_id"] = transport_task.item_id
-                decision_json["target_name"] = transport_task.source
-                decision_json["aux_name"] = transport_task.destination
+                # 仅补缺，不覆盖 LLM 已给出的参数
+                if decision_json.get("item_id") in (None, "", 0):
+                    decision_json["item_id"] = transport_task.item_id
+                if not decision_json.get("target_name"):
+                    decision_json["target_name"] = transport_task.source
+                if not decision_json.get("aux_name"):
+                    decision_json["aux_name"] = transport_task.destination
         
         plan_result = self.planner.generate_plan(self.name, command_type, decision_json, environment_data)
         
@@ -267,14 +500,18 @@ class RimSpaceAgent:
         else:
             # 规划失败（如资源不足，Planner已自动发布任务）
             # print(f"[{self.name}] Plan Failed: {plan_result.feedback}")
-            self.feedback_buffer = f"Last Action '{command_type}' Failed: {plan_result.feedback}"
+            formatted_feedback = _format_failure_feedback_for_mode(plan_result.feedback)
+            guidance = self._build_missing_resource_guidance(formatted_feedback, char_data)
+            if guidance:
+                formatted_feedback = f"{formatted_feedback} {guidance}"
+            self.feedback_buffer = f"Last Action '{command_type}' Failed: {formatted_feedback}"
             
             # 返回 Wait 并附带失败原因
             # [优化] 这里的 Decision 需要反映出失败状态
             failure_decision = decision_json.copy()
             # 保留原有reasoning，追加失败信息
             original_reasoning = failure_decision.get("reasoning", "")
-            failure_decision["reasoning"] = f"{original_reasoning}\n[Planner Failed]: {plan_result.feedback}"
+            failure_decision["reasoning"] = f"{original_reasoning}\n[Planner Failed]: {formatted_feedback}"
             
             return {
                 "CharacterName": self.name, 

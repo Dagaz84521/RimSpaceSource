@@ -1,0 +1,13 @@
+[
+  {
+    "mode": "no_blackboard",
+    "episodes": 5,
+    "completion_rate": 1.0,
+    "avg_rounds_success": 22.0,
+    "avg_wait_rate": 0.17297979797979798,
+    "avg_intent_accuracy": 0.9658585858585857,
+    "avg_skill_errors": 1.2,
+    "avg_transport_no_item": 1.0,
+    "avg_transport_no_item_wait": 0.0
+  }
+]

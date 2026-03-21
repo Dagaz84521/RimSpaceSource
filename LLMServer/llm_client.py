@@ -22,7 +22,7 @@ class LLMClient:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_context}
             ],
-            temperature=0.7,
+            temperature=0.3,
             max_tokens=500
         )
         return response.choices[0].message.content

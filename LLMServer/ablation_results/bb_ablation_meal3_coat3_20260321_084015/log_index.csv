@@ -1,0 +1,2 @@
+mode,episode,server_log,success,rounds,wait_rate,intent_accuracy
+full,1,D:\RimSpace\Source\LLMServer\ablation_results\bb_ablation_meal3_coat3_20260321_084015\server_full_ep001.log,1,42,0.15079365079365079,0.9523809523809523

@@ -291,8 +291,18 @@ class SimWorld:
             stats["Energy"] = max(0, stats.get("Energy", 0) - degradation)
 
 
-def build_default_world() -> Dict:
-    """构建默认世界，目标是生产 1 件衣服（ID 3001）"""
+def build_default_world(meal_goal: int = 1, coat_goal: int = 1) -> Dict:
+    """构建默认世界，按目标数量初始化 Stove/WorkStation 的 TaskList。"""
+    meal_goal = max(0, int(meal_goal))
+    coat_goal = max(0, int(coat_goal))
+
+    workstation_task_list = {}
+    stove_task_list = {}
+    if coat_goal > 0:
+        workstation_task_list["3001"] = coat_goal
+    if meal_goal > 0:
+        stove_task_list["2003"] = meal_goal
+
     return {
         "Environment": {
             "Actors": [
@@ -361,17 +371,13 @@ def build_default_world() -> Dict:
                     "ActorType": "EInteractionType::EAT_WorkStation",
                     "Inventory": {
                     },
-                    "TaskList": {
-                        "3001": 1,
-                    },
+                    "TaskList": workstation_task_list,
                 },
                 {
                     "ActorName": "Stove",
                     "ActorType": "EInteractionType::EAT_Stove",
                     "Inventory": {},
-                    "TaskList": {
-                        "2003": 1, # Meal
-                    },
+                    "TaskList": stove_task_list,
                 },
                 {
                     "ActorName": "Storage",

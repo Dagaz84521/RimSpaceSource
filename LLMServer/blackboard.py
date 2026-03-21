@@ -6,6 +6,12 @@ LLMServer 黑板模块
 from typing import List, Dict, Optional
 from enum import Enum
 import uuid
+import os
+
+
+def _disable_filtering() -> bool:
+    flag = os.environ.get("RIMSPACE_BB_DISABLE_FILTER", "0").strip().lower()
+    return flag in {"1", "true", "yes", "on"}
 
 # Goal 模块
 class Goal:
@@ -218,6 +224,9 @@ class Blackboard:
         :param game_state: 游戏状态，可能是 {"Environment": {...}} 或 {"Actors": [...]} 格式
         :return: 可执行的任务列表
         """
+        if _disable_filtering():
+            return list(self.tasks)
+
         # 提取角色信息
         char_name = agent_info.get("CharacterName", "Unknown")
         

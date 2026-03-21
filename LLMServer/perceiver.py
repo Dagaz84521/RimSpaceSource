@@ -5,6 +5,22 @@
 from typing import Dict, Any
 from blackboard import BlackboardTask, Goal
 from rimspace_enum import EInteractionType, ECultivatePhase
+import os
+
+
+def _basic_task_mode() -> bool:
+    flag = os.environ.get("RIMSPACE_BB_BASIC_TASKS", "0").strip().lower()
+    return flag in {"1", "true", "yes", "on"}
+
+
+def _task_product_name(global_planner, task_id: str) -> str:
+    try:
+        task_data = global_planner.game_data.task_map.get(str(task_id), {})
+        product_id = str(task_data.get("ProductID", task_id))
+        product = global_planner.game_data.item_map.get(product_id, {})
+        return product.get("ItemName", f"Task-{task_id}")
+    except Exception:
+        return f"Task-{task_id}"
 
 
 def perceive_environment_tasks(environment_data: Dict[str, Any],
@@ -46,6 +62,7 @@ def perceive_environment_tasks(environment_data: Dict[str, Any],
                     goal=goal,
                     required_skill="canFarm"
                 )
+                task.source = "perceiver"
                 blackboard_instance.post_task(task)
             elif cultivate_phase == ECultivatePhase.ReadyToHarvest.value:
                 cultivate_type = cultivate_info.get("CurrentCultivateType", "")
@@ -62,22 +79,41 @@ def perceive_environment_tasks(environment_data: Dict[str, Any],
                     goal=goal,
                     required_skill="canFarm"
                 )
+                task.source = "perceiver"
                 blackboard_instance.post_task(task)
         elif actor_type == EInteractionType.WorkStation.value or actor_type == EInteractionType.Stove.value:
             task_list = actor.get("TaskList", {})
             for task_id, count in task_list.items():
-                # 感知层不再构建 Goal 和 Preconditions，
-                # 只是把“需求”抛给 Planner 进行统一调度和拆解。
-                global_planner.analyze_and_post_crafting_task(
-                    facility_name=actor_name,
-                    task_id=task_id,
-                    count=count,
-                    environment=environment_data
-                )
+                if _basic_task_mode():
+                    product_name = _task_product_name(global_planner, task_id)
+                    required_skill = "canCraft" if actor_type == EInteractionType.WorkStation.value else "canCook"
+                    goal = Goal(
+                        target_actor=actor_name,
+                        property_type="TaskList",
+                        key=str(task_id),
+                        operator="==",
+                        value=0,
+                    )
+                    task = BlackboardTask(
+                        description=f"Craft {product_name} at {actor_name}",
+                        goal=goal,
+                        required_skill=required_skill,
+                    )
+                    task.source = "perceiver"
+                    blackboard_instance.post_task(task)
+                else:
+                    # 感知层不再构建 Goal 和 Preconditions，
+                    # 只是把“需求”抛给 Planner 进行统一调度和拆解。
+                    global_planner.analyze_and_post_crafting_task(
+                        facility_name=actor_name,
+                        task_id=task_id,
+                        count=count,
+                        environment=environment_data
+                    )
             if actor_type == EInteractionType.Stove.value:
                 stove_name = actor_name
 
-    if stove_name and meal_min_stock > 0:
+    if stove_name and meal_min_stock > 0 and not _basic_task_mode():
         meal_id = getattr(global_planner, 'game_data', None)
         if meal_id and hasattr(global_planner.game_data, 'item_name_to_id'):
             meal_id = global_planner.game_data.item_name_to_id.get("Meal")

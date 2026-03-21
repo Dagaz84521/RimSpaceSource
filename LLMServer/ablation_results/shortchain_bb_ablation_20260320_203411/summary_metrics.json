@@ -1,0 +1,13 @@
+[
+  {
+    "mode": "full",
+    "episodes": 5,
+    "completion_rate": 1.0,
+    "avg_rounds_success": 22.4,
+    "avg_wait_rate": 0.09,
+    "avg_intent_accuracy": 0.9583333333333334,
+    "avg_skill_errors": 0.0,
+    "avg_transport_no_item": 2.8,
+    "avg_transport_no_item_wait": 0.0
+  }
+]

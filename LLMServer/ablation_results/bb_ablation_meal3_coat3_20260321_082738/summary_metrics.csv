@@ -1,0 +1,2 @@
+mode,episodes,completion_rate,avg_rounds_success,avg_wait_rate,avg_intent_accuracy,avg_skill_errors,avg_transport_no_item,avg_transport_no_item_wait
+full,1,1.0,29.0,0.12643678160919541,0.9885057471264368,0.0,1.0,0.0
