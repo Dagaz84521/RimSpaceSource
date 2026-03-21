@@ -503,6 +503,10 @@ class Planner:
 
         item_name = self.item_map.get(str(item_id), {}).get("ItemName", f"Item_{item_id}")
         wrapped_env = {"Environment": environment} if "Environment" not in environment else environment
+        transport_counter = f"deliver:{item_id}:{target_facility}"
+        produce_counter = f"produce:{item_id}"
+        transport_done = self.blackboard.progress_counters.get(transport_counter, 0) >= int(amount_needed)
+        produce_done = self.blackboard.progress_counters.get(produce_counter, 0) >= int(amount_needed)
         
         # 任务本身的【最终目标】依然是总数
         goal_facility_has_item = Goal(target_actor=target_facility, property_type="Inventory", key=str(item_id), operator=">=", value=amount_needed)
@@ -514,7 +518,7 @@ class Planner:
         # ==========================================
         # 任务 1：搬运任务 
         # ==========================================
-        if not goal_facility_has_item.is_satisfied(wrapped_env):
+        if (not transport_done) and (not goal_facility_has_item.is_satisfied(wrapped_env)):
             source_actor = self.find_actor_with_item(item_id, 1, environment, exclude_actor=target_facility) or "Storage"
             task_transport = BlackboardTask(
                 description=f"System Request: Transport {item_name} (From {source_actor} To {target_facility})",
@@ -527,15 +531,21 @@ class Planner:
             task_transport.source = source_actor
             task_transport.destination = target_facility
             task_transport.count = amount_needed
+            task_transport.progress_counter = f"deliver:{item_id}:{target_facility}"
+            task_transport.progress_target = int(amount_needed)
+            task_transport.progress_kind = "deliver"
+            task_transport.progress_item_id = str(item_id)
+            task_transport.progress_actor = str(target_facility)
             self.blackboard.post_task(task_transport)
             
         # ==========================================
         # 任务 2：生产任务 
         # ==========================================
-        if not cond_global_has_item.is_satisfied(wrapped_env):
+        if (not produce_done) and (not cond_global_has_item.is_satisfied(wrapped_env)):
             recipe = self.product_to_recipe.get(str(item_id))
             skill_name = None
             produce_preconds = []
+            produce_facility = None
             
             if recipe:
                 skill_name = next(iter(recipe.get("RequiredSkill", {}))) if recipe.get("RequiredSkill") else None
@@ -562,4 +572,15 @@ class Planner:
                 required_skill=skill_name,
                 preconditions=produce_preconds # 使用分离后的单次条件
             )
+            task_produce.progress_counter = f"produce:{item_id}"
+            task_produce.progress_target = int(amount_needed)
+            task_produce.progress_kind = "produce"
+            task_produce.progress_item_id = str(item_id)
+            if produce_facility:
+                if str(produce_facility).startswith("CultivateChamber"):
+                    task_produce.progress_actor_prefix = "CultivateChamber"
+                else:
+                    task_produce.progress_actor = str(produce_facility)
+            elif str(item_name).lower() in {"cotton", "corn"}:
+                task_produce.progress_actor_prefix = "CultivateChamber"
             self.blackboard.post_task(task_produce)

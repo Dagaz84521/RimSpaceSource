@@ -3,10 +3,11 @@ LLMServer 黑板模块
 用于存储和管理环境中的任务和状态信息，供智能体决策使用。
 '''
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from enum import Enum
 import uuid
 import os
+import copy
 
 
 def _disable_filtering() -> bool:
@@ -158,6 +159,13 @@ class BlackboardTask:
         self.preconditions = preconditions or []
         self.priority = priority
         self.required_skill = required_skill
+        # 可选：事件进度型任务元数据（用于“累计完成量”目标）
+        self.progress_counter = None
+        self.progress_target = None
+        self.progress_kind = None
+        self.progress_item_id = None
+        self.progress_actor = None
+        self.progress_actor_prefix = None
     
     def is_active(self, game_state: Dict) -> bool:
         return not self.goal.is_satisfied(game_state)
@@ -183,6 +191,92 @@ class BlackboardTask:
 class Blackboard:
     def __init__ (self):
         self.tasks: List[BlackboardTask] = []
+        self.last_snapshot: Dict = {}
+        self.progress_counters: Dict[str, int] = {}
+
+    def _extract_actor_inventory(self, snapshot: Dict) -> Dict[str, Dict[str, int]]:
+        actor_inv: Dict[str, Dict[str, int]] = {}
+        env = snapshot.get("Environment", {}) if isinstance(snapshot, dict) else {}
+        actors = env.get("Actors", []) if isinstance(env, dict) else []
+        if isinstance(actors, dict):
+            actors = list(actors.values())
+
+        if not isinstance(actors, list):
+            return actor_inv
+
+        for actor in actors:
+            if not isinstance(actor, dict):
+                continue
+            name = actor.get("ActorName")
+            inv = actor.get("Inventory", {})
+            if not name or not isinstance(inv, dict):
+                continue
+            safe_inv: Dict[str, int] = {}
+            for key, value in inv.items():
+                if isinstance(value, int):
+                    safe_inv[str(key)] = value
+            actor_inv[str(name)] = safe_inv
+        return actor_inv
+
+    def _inventory_deltas(self, prev_snapshot: Dict, curr_snapshot: Dict) -> List[Tuple[str, str, int]]:
+        prev = self._extract_actor_inventory(prev_snapshot)
+        curr = self._extract_actor_inventory(curr_snapshot)
+        deltas: List[Tuple[str, str, int]] = []
+
+        actor_names = set(prev.keys()) | set(curr.keys())
+        for actor_name in actor_names:
+            prev_inv = prev.get(actor_name, {})
+            curr_inv = curr.get(actor_name, {})
+            item_ids = set(prev_inv.keys()) | set(curr_inv.keys())
+            for item_id in item_ids:
+                delta = curr_inv.get(item_id, 0) - prev_inv.get(item_id, 0)
+                if delta > 0:
+                    deltas.append((actor_name, item_id, delta))
+        return deltas
+
+    def _match_progress_def(self, pdef: Dict, actor_name: str, item_id: str) -> bool:
+        if str(pdef.get("item_id")) != str(item_id):
+            return False
+
+        actor_exact = pdef.get("actor")
+        actor_prefix = pdef.get("actor_prefix")
+        if actor_exact:
+            return actor_name == actor_exact
+        if actor_prefix:
+            return actor_name.startswith(actor_prefix)
+        return True
+
+    def _accumulate_progress(self, prev_snapshot: Dict, curr_snapshot: Dict) -> None:
+        # 只为当前任务中声明了 progress_counter 的任务累计进度
+        progress_defs: Dict[str, Dict] = {}
+        for task in self.tasks:
+            counter = getattr(task, "progress_counter", None)
+            if not counter:
+                continue
+            if counter in progress_defs:
+                continue
+            progress_defs[counter] = {
+                "kind": getattr(task, "progress_kind", None),
+                "item_id": str(getattr(task, "progress_item_id", "")),
+                "actor": getattr(task, "progress_actor", None),
+                "actor_prefix": getattr(task, "progress_actor_prefix", None),
+            }
+
+        if not progress_defs:
+            return
+
+        deltas = self._inventory_deltas(prev_snapshot, curr_snapshot)
+        for actor_name, item_id, delta in deltas:
+            for counter, pdef in progress_defs.items():
+                if self._match_progress_def(pdef, actor_name, item_id):
+                    self.progress_counters[counter] = self.progress_counters.get(counter, 0) + int(delta)
+
+    def _is_progress_task_done(self, task: BlackboardTask) -> bool:
+        counter = getattr(task, "progress_counter", None)
+        target = getattr(task, "progress_target", None)
+        if not counter or target is None:
+            return False
+        return self.progress_counters.get(counter, 0) >= int(target)
 
     def post_task(self, task: BlackboardTask):
         # 避免重复任务
@@ -195,7 +289,11 @@ class Blackboard:
                 g.value == task.goal.value):
                 # 重复目标任务沿用原实例，但刷新描述与动态参数，避免 source/destination 过期
                 t.description = task.description
-                for field in ("item_id", "source", "destination", "count"):
+                for field in (
+                    "item_id", "source", "destination", "count",
+                    "progress_counter", "progress_target", "progress_kind",
+                    "progress_item_id", "progress_actor", "progress_actor_prefix",
+                ):
                     if hasattr(task, field):
                         setattr(t, field, getattr(task, field))
                 return t  # 返回已存在的任务实例
@@ -209,13 +307,22 @@ class Blackboard:
         每回合调用。检查所有任务的 Goal。
         如果 Goal 已经满足 (is_satisfied == True)，则移除任务。
         """
+        if self.last_snapshot:
+            self._accumulate_progress(self.last_snapshot, game_state)
+
         active_tasks = []
         for t in self.tasks:
-            if t.goal.is_satisfied(game_state):
+            if self._is_progress_task_done(t):
+                counter = getattr(t, "progress_counter", "")
+                current = self.progress_counters.get(counter, 0)
+                target = getattr(t, "progress_target", 0)
+                print(f"[Blackboard] 进度已达成，自动移除: {t.description} ({current}/{target})")
+            elif t.goal.is_satisfied(game_state):
                 print(f"[Blackboard] 需求已满足，自动移除: {t.description}")
             else:
                 active_tasks.append(t)
         self.tasks = active_tasks
+        self.last_snapshot = copy.deepcopy(game_state) if isinstance(game_state, dict) else {}
 
     def get_executable_tasks(self, agent_info, game_state: Dict) -> List[BlackboardTask]:
         """

@@ -137,6 +137,13 @@ def _print_blackboard_tasks(environment=None) -> None:
         for idx, task in enumerate(tasks, start=1):
             desc = task.description if hasattr(task, "description") else str(task)
             skill = task.required_skill if hasattr(task, "required_skill") and task.required_skill else "None"
+            progress_status = ""
+            if hasattr(task, "progress_counter") and getattr(task, "progress_counter", None):
+                counter = getattr(task, "progress_counter")
+                target = getattr(task, "progress_target", None)
+                current = Blackboard_Instance.progress_counters.get(counter, 0)
+                if target is not None:
+                    progress_status = f" [Progress: {current}/{int(target)}]"
             
             # 追加Goal完成情况
             # goal_status = ""
@@ -164,7 +171,7 @@ def _print_blackboard_tasks(environment=None) -> None:
                 prep_status = f" [Preconditions: {len(task.preconditions)} items]"
             
             # print(f"    {idx}. [{skill}] {desc}{goal_status}{prep_status}")
-            line = f"    {idx}. [{skill}] {desc}{prep_status}"
+            line = f"    {idx}. [{skill}] {desc}{progress_status}{prep_status}"
             _safe_console_print(line)
             _server_log(line)
 
