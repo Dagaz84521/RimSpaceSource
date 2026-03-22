@@ -1,0 +1,137 @@
+[
+  {
+    "mode": "full",
+    "episode": 3,
+    "agent": "Crafter",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 6,
+    "agent": "Chef",
+    "skill_error": 0,
+    "transport_no_item": 2,
+    "transport_no_item_wait": 0,
+    "total_issues": 2
+  },
+  {
+    "mode": "full",
+    "episode": 6,
+    "agent": "Farmer",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 9,
+    "agent": "Chef",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 11,
+    "agent": "Farmer",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 15,
+    "agent": "Chef",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 18,
+    "agent": "Chef",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 18,
+    "agent": "Farmer",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "full",
+    "episode": 18,
+    "agent": "Crafter",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 5,
+    "agent": "Crafter",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 9,
+    "agent": "Crafter",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 12,
+    "agent": "Chef",
+    "skill_error": 2,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 2
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 16,
+    "agent": "Crafter",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 18,
+    "agent": "Crafter",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 20,
+    "agent": "Crafter",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  }
+]

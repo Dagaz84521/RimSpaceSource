@@ -1,0 +1,24 @@
+[
+  {
+    "mode": "full",
+    "episodes": 5,
+    "completion_rate": 1.0,
+    "avg_rounds_success": 27.4,
+    "avg_wait_rate": 0.19955908289241625,
+    "avg_intent_accuracy": 0.9976190476190476,
+    "avg_skill_errors": 0.0,
+    "avg_transport_no_item": 0.2,
+    "avg_transport_no_item_wait": 0.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episodes": 5,
+    "completion_rate": 1.0,
+    "avg_rounds_success": 49.2,
+    "avg_wait_rate": 0.13027850358757412,
+    "avg_intent_accuracy": 0.9971631205673759,
+    "avg_skill_errors": 0.4,
+    "avg_transport_no_item": 0.0,
+    "avg_transport_no_item_wait": 0.0
+  }
+]

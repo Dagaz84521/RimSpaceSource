@@ -1,0 +1,50 @@
+[
+  {
+    "mode": "full",
+    "episode": 4,
+    "round": 24,
+    "agent": "Crafter",
+    "error_type": "transport_no_item",
+    "command_type": "Take",
+    "high_command": "transport",
+    "target_name": "",
+    "source": "CultivateChamber_3",
+    "destination": "Stove",
+    "item_id": 1002,
+    "count": 1,
+    "current_location": "CultivateChamber_3",
+    "detail": "location=CultivateChamber_3; item=1002; need=1; have=0"
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 5,
+    "round": 8,
+    "agent": "Chef",
+    "error_type": "skill_error",
+    "command_type": "Use",
+    "high_command": "plant",
+    "target_name": "",
+    "source": "",
+    "destination": "",
+    "item_id": 0,
+    "count": 0,
+    "current_location": "CultivateChamber_3",
+    "detail": "required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancook']"
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 5,
+    "round": 13,
+    "agent": "Crafter",
+    "error_type": "skill_error",
+    "command_type": "Use",
+    "high_command": "harvest",
+    "target_name": "",
+    "source": "",
+    "destination": "",
+    "item_id": 0,
+    "count": 0,
+    "current_location": "CultivateChamber_1",
+    "detail": "required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']"
+  }
+]

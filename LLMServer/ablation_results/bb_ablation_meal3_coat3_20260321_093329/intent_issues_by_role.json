@@ -1,0 +1,29 @@
+[
+  {
+    "mode": "full",
+    "episode": 4,
+    "agent": "Crafter",
+    "skill_error": 0,
+    "transport_no_item": 1,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 5,
+    "agent": "Chef",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 5,
+    "agent": "Crafter",
+    "skill_error": 1,
+    "transport_no_item": 0,
+    "transport_no_item_wait": 0,
+    "total_issues": 1
+  }
+]

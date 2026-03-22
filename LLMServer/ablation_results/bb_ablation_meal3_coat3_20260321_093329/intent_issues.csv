@@ -1,0 +1,4 @@
+mode,episode,round,agent,error_type,command_type,high_command,target_name,source,destination,item_id,count,current_location,detail
+full,4,24,Crafter,transport_no_item,Take,transport,,CultivateChamber_3,Stove,1002,1,CultivateChamber_3,location=CultivateChamber_3; item=1002; need=1; have=0
+no-blackboard,5,8,Chef,skill_error,Use,plant,,,,0,0,CultivateChamber_3,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancook']
+no-blackboard,5,13,Crafter,skill_error,Use,harvest,,,,0,0,CultivateChamber_1,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']

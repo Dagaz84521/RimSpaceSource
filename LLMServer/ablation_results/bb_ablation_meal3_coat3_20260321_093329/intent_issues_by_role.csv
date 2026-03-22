@@ -1,0 +1,4 @@
+mode,episode,agent,skill_error,transport_no_item,transport_no_item_wait,total_issues
+full,4,Crafter,0,1,0,1
+no-blackboard,5,Chef,1,0,0,1
+no-blackboard,5,Crafter,1,0,0,1

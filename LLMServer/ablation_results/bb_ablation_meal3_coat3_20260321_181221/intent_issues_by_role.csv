@@ -1,0 +1,16 @@
+mode,episode,agent,skill_error,transport_no_item,transport_no_item_wait,total_issues
+full,3,Crafter,0,1,0,1
+full,6,Chef,0,2,0,2
+full,6,Farmer,0,1,0,1
+full,9,Chef,0,1,0,1
+full,11,Farmer,0,1,0,1
+full,15,Chef,0,1,0,1
+full,18,Chef,0,1,0,1
+full,18,Farmer,0,1,0,1
+full,18,Crafter,0,1,0,1
+no-blackboard,5,Crafter,1,0,0,1
+no-blackboard,9,Crafter,1,0,0,1
+no-blackboard,12,Chef,2,0,0,2
+no-blackboard,16,Crafter,1,0,0,1
+no-blackboard,18,Crafter,1,0,0,1
+no-blackboard,20,Crafter,1,0,0,1

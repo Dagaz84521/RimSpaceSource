@@ -8,7 +8,7 @@ import sys
 import time
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import requests
 
@@ -47,6 +47,24 @@ class SummaryMetrics:
     avg_skill_errors: float
     avg_transport_no_item: float
     avg_transport_no_item_wait: float
+
+
+@dataclass
+class IntentIssue:
+    mode: str
+    episode: int
+    round: int
+    agent: str
+    error_type: str
+    command_type: str
+    high_command: str
+    target_name: str
+    source: str
+    destination: str
+    item_id: int
+    count: int
+    current_location: str
+    detail: str
 
 
 def _post_json(server_url: str, payload: Dict, timeout: float) -> Dict:
@@ -102,12 +120,45 @@ def _facility_skill_required(actor_type: str) -> str:
     return ""
 
 
-def _collect_intent_errors(world: SimWorld, agent_name: str, decision: Dict, counts: Dict[str, int]) -> None:
+def _collect_intent_errors(
+    world: SimWorld,
+    agent_name: str,
+    decision: Dict,
+    counts: Dict[str, int],
+    issues: List[Dict[str, Any]],
+    mode: str,
+    episode: int,
+    round_idx: int,
+) -> None:
     cmd_type = decision.get("CommandType", "Wait")
     counts["intent_total"] += 1
 
     char = _find_char(world, agent_name)
     skills = {s.lower() for s in (char.get("CharacterSkills", []) or [])}
+    decision_meta = decision.get("Decision", {}) if isinstance(decision.get("Decision", {}), dict) else {}
+    high_command = str(decision_meta.get("command", "")).strip().lower()
+
+    def _push_issue(error_type: str, detail: str) -> None:
+        issues.append(
+            asdict(
+                IntentIssue(
+                    mode=mode,
+                    episode=episode,
+                    round=round_idx,
+                    agent=agent_name,
+                    error_type=error_type,
+                    command_type=str(cmd_type),
+                    high_command=high_command,
+                    target_name=str(decision.get("TargetName", "")),
+                    source=str(decision_meta.get("source", "")),
+                    destination=str(decision_meta.get("destination", "")),
+                    item_id=int(decision.get("ParamID", 0) or 0),
+                    count=int(decision.get("Count", 0) or 0),
+                    current_location=str(char.get("CurrentLocation", "")),
+                    detail=detail,
+                )
+            )
+        )
 
     if cmd_type == "Use":
         actor = _find_actor(world, char.get("CurrentLocation", ""))
@@ -115,6 +166,10 @@ def _collect_intent_errors(world: SimWorld, agent_name: str, decision: Dict, cou
         required = _facility_skill_required(actor_type)
         if required and required not in skills:
             counts["skill_errors"] += 1
+            _push_issue(
+                "skill_error",
+                f"required={required}; actor_type={actor_type}; skills={sorted(list(skills))}",
+            )
 
     if cmd_type == "Take":
         actor = _find_actor(world, char.get("CurrentLocation", ""))
@@ -123,14 +178,21 @@ def _collect_intent_errors(world: SimWorld, agent_name: str, decision: Dict, cou
         take_count = int(decision.get("Count", 1))
         if inv.get(param_id, 0) < take_count:
             counts["transport_no_item"] += 1
+            _push_issue(
+                "transport_no_item",
+                f"location={char.get('CurrentLocation', '')}; item={param_id}; need={take_count}; have={inv.get(param_id, 0)}",
+            )
 
     if cmd_type == "Wait":
-        decision_meta = decision.get("Decision", {})
-        high_command = str(decision_meta.get("command", "")).strip().lower()
-        reasoning = str(decision_meta.get("reasoning", "")).lower()
+        reasoning = (
+            str(decision_meta.get("reasoning", ""))
+            + " "
+            + str(decision_meta.get("thought", ""))
+        ).lower()
         no_item_keywords = ["no item", "could not locate", "资源", "缺", "不足", "missing"]
         if high_command == "transport" and any(k in reasoning for k in no_item_keywords):
             counts["transport_no_item_wait"] += 1
+            _push_issue("transport_no_item_wait", "wait with high-level transport due to missing items")
 
 
 def _run_episode(
@@ -156,6 +218,7 @@ def _run_episode(
         "transport_no_item_wait": 0,
         "intent_total": 0,
     }
+    issues: List[Dict[str, Any]] = []
 
     success = 0
     consecutive_all_wait_rounds = 0
@@ -201,7 +264,16 @@ def _run_episode(
                 wait_commands += 1
                 round_waits += 1
 
-            _collect_intent_errors(world, agent, decision, counts)
+            _collect_intent_errors(
+                world,
+                agent,
+                decision,
+                counts,
+                issues,
+                mode,
+                episode_idx,
+                rounds,
+            )
             world.apply_command(agent, decision)
 
         world.degrade_character_stats(degradation)
@@ -230,7 +302,7 @@ def _run_episode(
     wait_rate = (wait_commands / total_commands) if total_commands > 0 else 0.0
     intent_accuracy = 1.0 - (intent_errors / counts["intent_total"]) if counts["intent_total"] > 0 else 1.0
 
-    return EpisodeMetrics(
+    metrics = EpisodeMetrics(
         mode=mode,
         episode=episode_idx,
         success=success,
@@ -245,6 +317,8 @@ def _run_episode(
         intent_errors=intent_errors,
         intent_accuracy=intent_accuracy,
     )
+    setattr(metrics, "intent_issues", issues)
+    return metrics
 
 
 def _summarize(mode: str, episodes: List[EpisodeMetrics]) -> SummaryMetrics:
@@ -388,6 +462,8 @@ def main() -> int:
     all_episode_rows: List[Dict] = []
     summary_rows: List[Dict] = []
     log_index_rows: List[Dict] = []
+    all_intent_issues: List[Dict] = []
+    role_issue_summary_rows: List[Dict] = []
 
     for mode in modes:
         print(f"\n=== Running mode: {mode} ===", flush=True)
@@ -419,6 +495,28 @@ def main() -> int:
                 )
                 episode_metrics.append(m)
                 all_episode_rows.append(asdict(m))
+                episode_issues = getattr(m, "intent_issues", [])
+                all_intent_issues.extend(episode_issues)
+
+                # 每回合按角色/错误类型聚合一行，方便快速看是谁出错
+                role_counter: Dict[str, Dict[str, int]] = {}
+                for issue in episode_issues:
+                    role = issue.get("agent", "Unknown")
+                    et = issue.get("error_type", "unknown")
+                    role_counter.setdefault(role, {})
+                    role_counter[role][et] = role_counter[role].get(et, 0) + 1
+                for role, mcount in role_counter.items():
+                    role_issue_summary_rows.append(
+                        {
+                            "mode": mode,
+                            "episode": ep,
+                            "agent": role,
+                            "skill_error": mcount.get("skill_error", 0),
+                            "transport_no_item": mcount.get("transport_no_item", 0),
+                            "transport_no_item_wait": mcount.get("transport_no_item_wait", 0),
+                            "total_issues": sum(mcount.values()),
+                        }
+                    )
                 log_index_rows.append(
                     {
                         "mode": mode,
@@ -436,6 +534,15 @@ def main() -> int:
                     f"skill_err={m.skill_errors} no_item={m.transport_no_item} no_item_wait={m.transport_no_item_wait}",
                     flush=True,
                 )
+                if episode_issues:
+                    top = episode_issues[:5]
+                    print(f"[{mode}] ep={ep} issue_samples={len(episode_issues)} (showing {len(top)})", flush=True)
+                    for it in top:
+                        print(
+                            f"    - r{it['round']} {it['agent']} {it['error_type']} cmd={it['command_type']} "
+                            f"src={it['source']} dst={it['destination']} detail={it['detail']}",
+                            flush=True,
+                        )
             finally:
                 _stop_server(server_proc)
 
@@ -451,12 +558,20 @@ def main() -> int:
     _write_csv(os.path.join(out_dir, "episode_metrics.csv"), all_episode_rows)
     _write_csv(os.path.join(out_dir, "summary_metrics.csv"), summary_rows)
     _write_csv(os.path.join(out_dir, "log_index.csv"), log_index_rows)
+    _write_csv(os.path.join(out_dir, "intent_issues.csv"), all_intent_issues)
+    _write_csv(os.path.join(out_dir, "intent_issues_by_role.csv"), role_issue_summary_rows)
 
     with open(os.path.join(out_dir, "summary_metrics.json"), "w", encoding="utf-8") as f:
         json.dump(summary_rows, f, ensure_ascii=False, indent=2)
 
     with open(os.path.join(out_dir, "log_index.json"), "w", encoding="utf-8") as f:
         json.dump(log_index_rows, f, ensure_ascii=False, indent=2)
+
+    with open(os.path.join(out_dir, "intent_issues.json"), "w", encoding="utf-8") as f:
+        json.dump(all_intent_issues, f, ensure_ascii=False, indent=2)
+
+    with open(os.path.join(out_dir, "intent_issues_by_role.json"), "w", encoding="utf-8") as f:
+        json.dump(role_issue_summary_rows, f, ensure_ascii=False, indent=2)
 
     print(f"\nSaved results to: {out_dir}", flush=True)
     return 0

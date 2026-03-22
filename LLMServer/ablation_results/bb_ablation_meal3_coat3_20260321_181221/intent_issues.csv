@@ -1,0 +1,18 @@
+mode,episode,round,agent,error_type,command_type,high_command,target_name,source,destination,item_id,count,current_location,detail
+full,3,13,Crafter,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,6,11,Chef,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,6,12,Farmer,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,6,26,Chef,transport_no_item,Take,transport,,CultivateChamber_3,Stove,1002,1,CultivateChamber_3,location=CultivateChamber_3; item=1002; need=1; have=0
+full,9,15,Chef,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,11,29,Farmer,transport_no_item,Take,transport,,CultivateChamber_3,Stove,1002,1,CultivateChamber_3,location=CultivateChamber_3; item=1002; need=1; have=0
+full,15,15,Chef,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,18,15,Chef,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,18,16,Farmer,transport_no_item,Take,transport,,CultivateChamber_1,WorkStation,1001,1,CultivateChamber_1,location=CultivateChamber_1; item=1001; need=1; have=0
+full,18,27,Crafter,transport_no_item,Take,transport,,CultivateChamber_3,Stove,1002,1,CultivateChamber_3,location=CultivateChamber_3; item=1002; need=1; have=0
+no-blackboard,5,10,Crafter,skill_error,Use,harvest,,,,0,0,CultivateChamber_1,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']
+no-blackboard,9,30,Crafter,skill_error,Use,harvest,,,,0,0,CultivateChamber_2,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']
+no-blackboard,12,10,Chef,skill_error,Use,harvest,,,,0,0,CultivateChamber_1,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancook']
+no-blackboard,12,13,Chef,skill_error,Use,harvest,,,,0,0,CultivateChamber_1,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancook']
+no-blackboard,16,13,Crafter,skill_error,Use,harvest,,,,0,0,CultivateChamber_1,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']
+no-blackboard,18,7,Crafter,skill_error,Use,plant,,,,0,0,CultivateChamber_1,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']
+no-blackboard,20,33,Crafter,skill_error,Use,harvest,,,,0,0,CultivateChamber_2,required=canfarm; actor_type=EInteractionType::EAT_CultivateChamber; skills=['cancraft']

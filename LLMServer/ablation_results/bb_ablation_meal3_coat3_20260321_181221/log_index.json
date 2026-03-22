@@ -1,0 +1,362 @@
+[
+  {
+    "mode": "full",
+    "episode": 1,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep001.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.20987654320987653,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 2,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep002.log",
+    "success": 1,
+    "rounds": 26,
+    "wait_rate": 0.14102564102564102,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 3,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep003.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.16049382716049382,
+    "intent_accuracy": 0.9876543209876543
+  },
+  {
+    "mode": "full",
+    "episode": 4,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep004.log",
+    "success": 1,
+    "rounds": 26,
+    "wait_rate": 0.14102564102564102,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 5,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep005.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 6,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep006.log",
+    "success": 1,
+    "rounds": 31,
+    "wait_rate": 0.17204301075268819,
+    "intent_accuracy": 0.967741935483871
+  },
+  {
+    "mode": "full",
+    "episode": 7,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep007.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 8,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep008.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 9,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep009.log",
+    "success": 1,
+    "rounds": 32,
+    "wait_rate": 0.10416666666666667,
+    "intent_accuracy": 0.9895833333333334
+  },
+  {
+    "mode": "full",
+    "episode": 10,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep010.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 11,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep011.log",
+    "success": 1,
+    "rounds": 31,
+    "wait_rate": 0.15053763440860216,
+    "intent_accuracy": 0.989247311827957
+  },
+  {
+    "mode": "full",
+    "episode": 12,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep012.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 13,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep013.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.20987654320987653,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 14,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep014.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 15,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep015.log",
+    "success": 1,
+    "rounds": 26,
+    "wait_rate": 0.15384615384615385,
+    "intent_accuracy": 0.9871794871794872
+  },
+  {
+    "mode": "full",
+    "episode": 16,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep016.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.20987654320987653,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 17,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep017.log",
+    "success": 1,
+    "rounds": 26,
+    "wait_rate": 0.14102564102564102,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 18,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep018.log",
+    "success": 1,
+    "rounds": 31,
+    "wait_rate": 0.12903225806451613,
+    "intent_accuracy": 0.967741935483871
+  },
+  {
+    "mode": "full",
+    "episode": 19,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep019.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.19753086419753085,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "full",
+    "episode": 20,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_full_ep020.log",
+    "success": 1,
+    "rounds": 27,
+    "wait_rate": 0.20987654320987653,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 1,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep001.log",
+    "success": 1,
+    "rounds": 51,
+    "wait_rate": 0.1503267973856209,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 2,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep002.log",
+    "success": 1,
+    "rounds": 54,
+    "wait_rate": 0.12962962962962962,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 3,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep003.log",
+    "success": 1,
+    "rounds": 49,
+    "wait_rate": 0.16326530612244897,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 4,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep004.log",
+    "success": 1,
+    "rounds": 57,
+    "wait_rate": 0.12280701754385964,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 5,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep005.log",
+    "success": 1,
+    "rounds": 46,
+    "wait_rate": 0.13043478260869565,
+    "intent_accuracy": 0.9927536231884058
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 6,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep006.log",
+    "success": 1,
+    "rounds": 57,
+    "wait_rate": 0.11695906432748537,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 7,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep007.log",
+    "success": 1,
+    "rounds": 58,
+    "wait_rate": 0.14367816091954022,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 8,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep008.log",
+    "success": 1,
+    "rounds": 43,
+    "wait_rate": 0.11627906976744186,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 9,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep009.log",
+    "success": 1,
+    "rounds": 41,
+    "wait_rate": 0.12195121951219512,
+    "intent_accuracy": 0.991869918699187
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 10,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep010.log",
+    "success": 1,
+    "rounds": 45,
+    "wait_rate": 0.17037037037037037,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 11,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep011.log",
+    "success": 1,
+    "rounds": 44,
+    "wait_rate": 0.12121212121212122,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 12,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep012.log",
+    "success": 1,
+    "rounds": 52,
+    "wait_rate": 0.1858974358974359,
+    "intent_accuracy": 0.9871794871794872
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 13,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep013.log",
+    "success": 1,
+    "rounds": 48,
+    "wait_rate": 0.1597222222222222,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 14,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep014.log",
+    "success": 1,
+    "rounds": 47,
+    "wait_rate": 0.16312056737588654,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 15,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep015.log",
+    "success": 1,
+    "rounds": 48,
+    "wait_rate": 0.125,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 16,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep016.log",
+    "success": 1,
+    "rounds": 45,
+    "wait_rate": 0.14074074074074075,
+    "intent_accuracy": 0.9925925925925926
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 17,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep017.log",
+    "success": 1,
+    "rounds": 50,
+    "wait_rate": 0.11333333333333333,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 18,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep018.log",
+    "success": 1,
+    "rounds": 53,
+    "wait_rate": 0.16352201257861634,
+    "intent_accuracy": 0.9937106918238994
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 19,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep019.log",
+    "success": 1,
+    "rounds": 45,
+    "wait_rate": 0.18518518518518517,
+    "intent_accuracy": 1.0
+  },
+  {
+    "mode": "no-blackboard",
+    "episode": 20,
+    "server_log": "D:\\RimSpace\\Source\\LLMServer\\ablation_results\\bb_ablation_meal3_coat3_20260321_181221\\server_no-blackboard_ep020.log",
+    "success": 1,
+    "rounds": 50,
+    "wait_rate": 0.15333333333333332,
+    "intent_accuracy": 0.9933333333333333
+  }
+]
