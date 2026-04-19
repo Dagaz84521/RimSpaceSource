@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="840" viewBox="35 80 1430 840">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2d3340"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2c62a6"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2e7650"/>
+    </marker>
+    <style>
+      .area-title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 21px; font-weight: 700; fill: #273142; }
+      .agent-title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 20px; font-weight: 700; fill: #273142; }
+      .box-title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 17px; font-weight: 700; fill: #273142; }
+      .text { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 14px; fill: #424b5a; }
+      .small { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 13px; fill: #596170; }
+      .edge-label { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 13px; font-weight: 700; fill: #4b5565; }
+      .server-area { fill: #faf8ff; stroke: #c5b9e8; stroke-width: 2; rx: 16; }
+      .agent { fill: #ffffff; stroke-width: 2.2; rx: 14; }
+      .farmer { stroke: #7dad73; }
+      .chef { stroke: #d29563; }
+      .crafter { stroke: #6f94c9; }
+      .agent-head-farmer { fill: #eef8ec; stroke: #7dad73; stroke-width: 1.8; rx: 10; }
+      .agent-head-chef { fill: #fff4e8; stroke: #d29563; stroke-width: 1.8; rx: 10; }
+      .agent-head-crafter { fill: #eef5ff; stroke: #6f94c9; stroke-width: 1.8; rx: 10; }
+      .module { fill: #f8fbff; stroke: #8aa6d8; stroke-width: 1.8; rx: 9; }
+      .planner { fill: #fffaf0; stroke: #d3a65c; stroke-width: 1.8; rx: 9; }
+      .queue { fill: #f5f6f8; stroke: #aab3c1; stroke-width: 1.5; rx: 8; }
+      .perceiver { fill: #eff7ff; stroke: #6c9dd4; stroke-width: 2.5; rx: 13; }
+      .blackboard { fill: #f3efff; stroke: #8f7ad8; stroke-width: 2.5; rx: 13; }
+      .api { fill: #fff8ec; stroke: #d2a45d; stroke-width: 2.2; rx: 12; }
+      .game { fill: #edf8f1; stroke: #78ad88; stroke-width: 2.5; rx: 13; }
+      .arrow { stroke: #2d3340; stroke-width: 2.3; fill: none; marker-end: url(#arrow); }
+      .arrow-blue { stroke: #2c62a6; stroke-width: 2.2; fill: none; marker-end: url(#arrowBlue); }
+      .arrow-green { stroke: #2e7650; stroke-width: 2.2; fill: none; marker-end: url(#arrowGreen); }
+      .dash { stroke: #667085; stroke-width: 2; fill: none; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect x="35" y="80" width="1430" height="840" fill="#ffffff"/>
+  <rect x="55" y="105" width="1390" height="645" class="server-area"/>
+  <text x="750" y="140" text-anchor="middle" class="area-title">AgentsServer 多智能体决策层</text>
+
+  <rect x="110" y="170" width="360" height="360" class="agent farmer"/>
+  <rect x="135" y="194" width="310" height="62" class="agent-head-farmer"/>
+  <text x="290" y="220" text-anchor="middle" class="agent-title">农夫 Agent</text>
+
+  <rect x="150" y="286" width="280" height="70" class="module"/>
+  <text x="290" y="315" text-anchor="middle" class="box-title">LLM</text>
+
+  <rect x="150" y="394" width="280" height="70" class="planner"/>
+  <text x="290" y="423" text-anchor="middle" class="box-title">Planner 规划器</text>
+
+  <rect x="180" y="485" width="220" height="30" class="queue"/>
+  <text x="290" y="505" text-anchor="middle" class="small">Action Queue / Command JSON</text>
+
+  <line x1="290" y1="356" x2="290" y2="389" class="arrow"/>
+  <line x1="290" y1="464" x2="290" y2="480" class="arrow"/>
+
+  <rect x="570" y="170" width="360" height="360" class="agent chef"/>
+  <rect x="595" y="194" width="310" height="62" class="agent-head-chef"/>
+  <text x="750" y="220" text-anchor="middle" class="agent-title">厨师 Agent</text>
+
+  <rect x="610" y="286" width="280" height="70" class="module"/>
+  <text x="750" y="315" text-anchor="middle" class="box-title">LLM</text>
+
+  <rect x="610" y="394" width="280" height="70" class="planner"/>
+  <text x="750" y="423" text-anchor="middle" class="box-title">Planner 规划器</text>
+
+  <rect x="640" y="485" width="220" height="30" class="queue"/>
+  <text x="750" y="505" text-anchor="middle" class="small">Action Queue / Command JSON</text>
+
+  <line x1="750" y1="356" x2="750" y2="389" class="arrow"/>
+  <line x1="750" y1="464" x2="750" y2="480" class="arrow"/>
+
+  <rect x="1030" y="170" width="360" height="360" class="agent crafter"/>
+  <rect x="1055" y="194" width="310" height="62" class="agent-head-crafter"/>
+  <text x="1210" y="220" text-anchor="middle" class="agent-title">工匠 Agent</text>
+
+  <rect x="1070" y="286" width="280" height="70" class="module"/>
+  <text x="1210" y="315" text-anchor="middle" class="box-title">LLM</text>
+
+  <rect x="1070" y="394" width="280" height="70" class="planner"/>
+  <text x="1210" y="423" text-anchor="middle" class="box-title">Planner 规划器</text>
+
+  <rect x="1100" y="485" width="220" height="30" class="queue"/>
+  <text x="1210" y="505" text-anchor="middle" class="small">Action Queue / Command JSON</text>
+
+  <line x1="1210" y1="356" x2="1210" y2="389" class="arrow"/>
+  <line x1="1210" y1="464" x2="1210" y2="480" class="arrow"/>
+
+  <rect x="105" y="620" width="250" height="90" class="perceiver"/>
+  <text x="230" y="672" text-anchor="middle" class="area-title">Perceiver 感知器</text>
+
+  <rect x="430" y="610" width="660" height="120" class="blackboard"/>
+  <text x="750" y="650" text-anchor="middle" class="area-title">黑板 Blackboard</text>
+
+  <rect x="590" y="752" width="320" height="52" class="api"/>
+  <text x="750" y="773" text-anchor="middle" class="box-title">Flask API</text>
+  <text x="750" y="793" text-anchor="middle" class="text">/GetInstruction</text>
+
+  <rect x="185" y="825" width="1130" height="72" class="game"/>
+  <text x="750" y="856" text-anchor="middle" class="area-title">RimSpace 游戏环境</text>
+  <text x="750" y="881" text-anchor="middle" class="text">Environment / Characters / Facilities / Inventory</text>
+
+  <path d="M 290 530 C 290 572, 470 572, 555 610" class="arrow-blue"/>
+  <text x="430" y="578" text-anchor="middle" class="edge-label">任务读写</text>
+  <path d="M 750 530 L 750 605" class="arrow-blue"/>
+  <text x="790" y="570" class="edge-label">任务读写</text>
+  <path d="M 1210 530 C 1210 572, 1040 572, 965 610" class="arrow-blue"/>
+  <text x="1065" y="578" text-anchor="middle" class="edge-label">任务读写</text>
+
+  <path d="M 595 610 C 535 575, 390 562, 290 535" class="dash"/>
+  <text x="455" y="552" text-anchor="middle" class="edge-label">可执行任务</text>
+  <path d="M 750 610 L 750 535" class="dash"/>
+  <text x="645" y="570" class="edge-label">可执行任务</text>
+  <path d="M 905 610 C 965 575, 1110 562, 1210 535" class="dash"/>
+  <text x="1045" y="552" text-anchor="middle" class="edge-label">可执行任务</text>
+
+  <path d="M 180 515 C 80 610, 80 760, 585 778" class="arrow-green"/>
+  <text x="230" y="755" text-anchor="middle" class="edge-label">Command JSON</text>
+  <path d="M 860 515 C 1245 585, 1250 750, 915 778" class="arrow-green"/>
+  <text x="1168" y="704" text-anchor="middle" class="edge-label">Command JSON</text>
+  <path d="M 1320 515 C 1420 610, 1420 760, 915 778" class="arrow-green"/>
+  <text x="1270" y="755" text-anchor="middle" class="edge-label">Command JSON</text>
+
+  <path d="M 750 825 L 750 809" class="arrow-blue"/>
+  <text x="775" y="821" class="edge-label">HTTP POST</text>
+  <path d="M 590 778 C 380 780, 230 755, 230 715" class="arrow-blue"/>
+  <text x="395" y="795" text-anchor="middle" class="edge-label">State JSON</text>
+  <path d="M 355 665 L 425 665" class="arrow-blue"/>
+  <text x="390" y="653" text-anchor="middle" class="edge-label">任务更新</text>
+
+</svg>

@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980">
+  <defs>
+    <style>
+      .bg { fill: #f7f9fb; }
+      .title { font: 700 30px Arial, "Microsoft YaHei", sans-serif; fill: #1f2937; }
+      .subtitle { font: 18px Arial, "Microsoft YaHei", sans-serif; fill: #4b5563; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .box-time { fill: #eef6ff; stroke: #2563eb; }
+      .box-manager { fill: #f0fdf4; stroke: #16a34a; }
+      .box-entity { fill: #fff7ed; stroke: #ea580c; }
+      .box-comm { fill: #f5f3ff; stroke: #7c3aed; }
+      .head { font: 700 18px Arial, "Microsoft YaHei", sans-serif; fill: #111827; }
+      .stereo { font: 14px Arial, "Microsoft YaHei", sans-serif; fill: #6b7280; }
+      .member { font: 15px Consolas, "Microsoft YaHei", monospace; fill: #1f2937; }
+      .label { font: 14px Arial, "Microsoft YaHei", sans-serif; fill: #374151; }
+      .note { font: 15px Arial, "Microsoft YaHei", sans-serif; fill: #4b5563; }
+      .solid { stroke: #334155; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke: #64748b; stroke-width: 2.2; fill: none; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+      .agg { stroke: #334155; stroke-width: 2.2; fill: none; marker-start: url(#diamond); marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <marker id="diamond" markerWidth="18" markerHeight="18" refX="3" refY="9" orient="auto" markerUnits="strokeWidth">
+      <path d="M3,9 L9,3 L15,9 L9,15 Z" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1500" height="980"/>
+
+  <text class="title" x="750" y="54" text-anchor="middle">RimSpace 状态管理与多智能体通信类图</text>
+  <text class="subtitle" x="750" y="86" text-anchor="middle">Time / Actor / Character 子系统负责维护可序列化世界状态，通信子系统负责请求与指令分发</text>
+
+  <!-- Top communication subsystem -->
+  <rect class="box box-comm" x="535" y="125" width="430" height="150"/>
+  <text class="stereo" x="750" y="154" text-anchor="middle">&lt;&lt;Communication&gt;&gt;</text>
+  <text class="head" x="750" y="181" text-anchor="middle">ULLMCommunicationSubsystem</text>
+  <line x1="555" y1="198" x2="945" y2="198" stroke="#7c3aed" stroke-width="1.3"/>
+  <text class="member" x="570" y="226">+ RequestNextAgentCommand(FName)</text>
+  <text class="member" x="570" y="252">- OnCommandResponseReceived(...)</text>
+
+  <!-- Three subsystems -->
+  <rect class="box box-time" x="75" y="370" width="390" height="210"/>
+  <text class="stereo" x="270" y="399" text-anchor="middle">&lt;&lt;GameInstanceSubsystem&gt;&gt;</text>
+  <text class="head" x="270" y="426" text-anchor="middle">URimSpaceTimeSubsystem</text>
+  <line x1="95" y1="444" x2="445" y2="444" stroke="#2563eb" stroke-width="1.3"/>
+  <text class="member" x="110" y="471">+ GetFormattedTime() FString</text>
+  <text class="member" x="110" y="497">+ StopTimeSystem()</text>
+  <text class="member" x="110" y="523">+ ResumeTimeSystem()</text>
+  <text class="member" x="110" y="549">+ OnMinutePassed</text>
+
+  <rect class="box box-manager" x="555" y="345" width="390" height="260"/>
+  <text class="stereo" x="750" y="374" text-anchor="middle">&lt;&lt;WorldSubsystem&gt;&gt;</text>
+  <text class="head" x="750" y="401" text-anchor="middle">UActorManagerSubsystem</text>
+  <line x1="575" y1="419" x2="925" y2="419" stroke="#16a34a" stroke-width="1.3"/>
+  <text class="member" x="590" y="446">- RegisteredActors</text>
+  <text class="member" x="590" y="472">+ RegisterActorWithName(...)</text>
+  <text class="member" x="590" y="498">+ GetActorByName(FName)</text>
+  <text class="member" x="590" y="524">+ GetActorsDataAsJson()</text>
+
+  <rect class="box box-manager" x="1035" y="330" width="390" height="290"/>
+  <text class="stereo" x="1230" y="359" text-anchor="middle">&lt;&lt;WorldSubsystem&gt;&gt;</text>
+  <text class="head" x="1230" y="386" text-anchor="middle">UCharacterManagerSubsystem</text>
+  <line x1="1055" y1="404" x2="1405" y2="404" stroke="#16a34a" stroke-width="1.3"/>
+  <text class="member" x="1070" y="431">- RegisteredCharacters</text>
+  <text class="member" x="1070" y="457">+ RegisterCharacterWithName(...)</text>
+  <text class="member" x="1070" y="483">+ GetCharacterByName(FName)</text>
+  <text class="member" x="1070" y="509">+ GetCharactersDataAsJson()</text>
+  <text class="member" x="1070" y="535">+ ExecuteCommand(FAgentCommand)</text>
+
+  <!-- Entities -->
+  <rect class="box box-entity" x="555" y="720" width="390" height="170"/>
+  <text class="stereo" x="750" y="749" text-anchor="middle">&lt;&lt;Interactive Actor&gt;&gt;</text>
+  <text class="head" x="750" y="776" text-anchor="middle">ARimSpaceActorBase</text>
+  <line x1="575" y1="794" x2="925" y2="794" stroke="#ea580c" stroke-width="1.3"/>
+  <text class="member" x="590" y="821">+ GetActorDataAsJson()</text>
+  <text class="member" x="590" y="847">+ UpdateEachMinute(int32)</text>
+
+  <rect class="box box-entity" x="1035" y="720" width="390" height="170"/>
+  <text class="stereo" x="1230" y="749" text-anchor="middle">&lt;&lt;Agent Character&gt;&gt;</text>
+  <text class="head" x="1230" y="776" text-anchor="middle">ARimSpaceCharacterBase</text>
+  <line x1="1055" y1="794" x2="1405" y2="794" stroke="#ea580c" stroke-width="1.3"/>
+  <text class="member" x="1070" y="821">+ GetActorDataAsJson()</text>
+  <text class="member" x="1070" y="847">+ ExecuteAgentCommand(...)</text>
+  <text class="member" x="1070" y="873">+ UpdateEachMinute(int32)</text>
+
+  <!-- Connections from comm to subsystems -->
+  <path class="dashed" d="M635 275 C560 315, 430 330, 340 370"/>
+  <text class="label" x="415" y="318">pause / resume / time</text>
+
+  <path class="dashed" d="M750 275 L750 345"/>
+  <text class="label" x="765" y="315">GetActorsDataAsJson</text>
+
+  <path class="dashed" d="M865 275 C965 312, 1085 300, 1175 330"/>
+  <text class="label" x="1005" y="306">GetCharactersDataAsJson</text>
+  <text class="label" x="1042" y="326">ExecuteCommand</text>
+
+  <!-- Aggregation connections -->
+  <path class="agg" d="M750 605 L750 720"/>
+  <text class="label" x="762" y="669">registers / collects</text>
+
+  <path class="agg" d="M1230 620 L1230 720"/>
+  <text class="label" x="1242" y="673">registers / dispatches</text>
+
+  <!-- Time events -->
+  <path class="dashed" d="M465 526 C530 650, 612 690, 690 720"/>
+  <text class="label" x="520" y="653">time events</text>
+
+  <path class="dashed" d="M465 500 C640 650, 995 660, 1170 720"/>
+  <text class="label" x="780" y="655">time events</text>
+
+  <!-- Legend -->
+  <rect x="75" y="875" width="370" height="60" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8"/>
+  <line x1="95" y1="898" x2="155" y2="898" class="dashed"/>
+  <text class="note" x="170" y="903">虚线：依赖或事件通知</text>
+  <line x1="95" y1="924" x2="155" y2="924" class="agg"/>
+  <text class="note" x="170" y="929">空心菱形：注册、聚合或分发关系</text>
+</svg>

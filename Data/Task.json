@@ -3,7 +3,7 @@
         "TaskID": 1001,
         "TaskName": "种植棉花",
         "ProductID": 1001,
-        "TaskWorkLoad": 120,
+        "TaskWorkLoad": 60,
         "Ingredients": [],
         "RequiredFacility": "CultivateChamber",
         "RequiredSkill": {
@@ -14,7 +14,7 @@
         "TaskID": 1002,
         "TaskName": "种植玉米",
         "ProductID": 1002,
-        "TaskWorkLoad": 100,
+        "TaskWorkLoad": 50,
         "Ingredients": [],
         "RequiredFacility": "CultivateChamber",
         "RequiredSkill": {
@@ -25,7 +25,7 @@
         "TaskID": 2001,
         "TaskName": "生产棉线",
         "ProductID": 2001,
-        "TaskWorkLoad": 100,
+        "TaskWorkLoad": 50,
         "Ingredients":[
             {
                 "ItemID": 1001,
@@ -41,7 +41,7 @@
         "TaskID": 2002,
         "TaskName": "生产布料",
         "ProductID": 2002,
-        "TaskWorkLoad": 200,
+        "TaskWorkLoad": 100,
         "Ingredients":[
             {
                 "ItemID": 1001,
@@ -57,7 +57,7 @@
         "TaskID": 2003,
         "TaskName": "制作套餐",
         "ProductID": 2003,
-        "TaskWorkLoad": 150,
+        "TaskWorkLoad": 75,
         "Ingredients":[
             {
                 "ItemID": 1002,
@@ -73,7 +73,7 @@
         "TaskID": 3001,
         "TaskName": "生产衣服",
         "ProductID": 3001,
-        "TaskWorkLoad": 250,
+        "TaskWorkLoad": 125,
         "Ingredients":[
             {
                 "ItemID": 2002,

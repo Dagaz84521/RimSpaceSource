@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="920" viewBox="0 0 1500 920">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f3440"/>
+    </marker>
+    <style>
+      .title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 30px; font-weight: 700; fill: #1f2430; }
+      .subtitle { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 15px; fill: #4d5565; }
+      .lane-title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 20px; font-weight: 700; fill: #273044; }
+      .node-title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 17px; font-weight: 700; fill: #253044; }
+      .node-text { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 14px; fill: #465064; }
+      .legend { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 14px; fill: #303746; }
+      .outer { fill: #fbfcff; stroke: #cfd6e6; stroke-width: 2; rx: 14; }
+      .blackboard { fill: #f5f0ff; stroke: #8f7ad8; stroke-width: 2.2; rx: 10; }
+      .goal { fill: #fff8e8; stroke: #d6a84f; stroke-width: 2.2; rx: 10; }
+      .farmer { fill: #edf8ef; stroke: #70ad7c; stroke-width: 2; rx: 9; }
+      .chef { fill: #fff0f0; stroke: #d77d7d; stroke-width: 2; rx: 9; }
+      .crafter { fill: #eef5ff; stroke: #7199d8; stroke-width: 2; rx: 9; }
+      .any { fill: #f4f5f7; stroke: #9aa3b2; stroke-width: 2; rx: 9; }
+      .arrow { stroke: #2f3440; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #666f80; stroke-width: 2; fill: none; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1500" height="920" fill="#ffffff"/>
+  <text x="750" y="48" text-anchor="middle" class="title">复合生产目标的黑板任务拆解与角色分工</text>
+  <text x="750" y="76" text-anchor="middle" class="subtitle">所有中间步骤均作为 BlackboardTask 进入黑板，由黑板根据技能约束和前置条件动态释放给不同角色</text>
+
+  <rect x="55" y="105" width="1390" height="665" class="outer"/>
+
+  <rect x="105" y="140" width="230" height="86" class="goal"/>
+  <text x="220" y="174" text-anchor="middle" class="node-title">玩家发布复合目标</text>
+  <text x="220" y="201" text-anchor="middle" class="node-text">3 份套餐 + 3 件衣服</text>
+
+  <rect x="435" y="130" width="260" height="106" class="blackboard"/>
+  <text x="565" y="166" text-anchor="middle" class="node-title">Blackboard 任务池</text>
+  <text x="565" y="193" text-anchor="middle" class="node-text">任务拆解 / 去重 / 状态校验</text>
+  <text x="565" y="216" text-anchor="middle" class="node-text">required_skill + preconditions</text>
+
+  <path d="M 335 183 L 430 183" class="arrow"/>
+
+  <rect x="135" y="290" width="1260" height="160" fill="#fdfbff" stroke="#c8b8ee" stroke-width="1.8" stroke-dasharray="9 7" rx="12"/>
+  <rect x="135" y="515" width="1260" height="160" fill="#fdfbff" stroke="#c8b8ee" stroke-width="1.8" stroke-dasharray="9 7" rx="12"/>
+  <text x="155" y="280" class="lane-title">黑板任务池：套餐生产链</text>
+  <text x="155" y="505" class="lane-title">黑板任务池：衣服生产链</text>
+
+  <!-- Meal chain -->
+  <rect x="190" y="335" width="175" height="86" class="farmer"/>
+  <text x="277" y="369" text-anchor="middle" class="node-title">种植 / 收获玉米</text>
+  <text x="277" y="394" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="277" y="414" text-anchor="middle" class="node-text">Farmer · CanFarm</text>
+
+  <rect x="455" y="335" width="175" height="86" class="any"/>
+  <text x="542" y="369" text-anchor="middle" class="node-title">搬运玉米</text>
+  <text x="542" y="394" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="542" y="414" text-anchor="middle" class="node-text">任意空闲角色</text>
+
+  <rect x="720" y="335" width="175" height="86" class="chef"/>
+  <text x="807" y="369" text-anchor="middle" class="node-title">制作套餐</text>
+  <text x="807" y="394" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="807" y="414" text-anchor="middle" class="node-text">Chef · CanCook</text>
+
+  <rect x="1000" y="335" width="175" height="86" class="goal"/>
+  <text x="1087" y="369" text-anchor="middle" class="node-title">套餐完成</text>
+  <text x="1087" y="396" text-anchor="middle" class="node-text">Goal: Meal ≥ 3</text>
+
+  <path d="M 365 378 L 450 378" class="arrow"/>
+  <path d="M 630 378 L 715 378" class="arrow"/>
+  <path d="M 895 378 L 995 378" class="arrow"/>
+
+  <!-- Clothing chain -->
+  <rect x="190" y="560" width="175" height="86" class="farmer"/>
+  <text x="277" y="594" text-anchor="middle" class="node-title">种植 / 收获棉花</text>
+  <text x="277" y="619" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="277" y="639" text-anchor="middle" class="node-text">Farmer · CanFarm</text>
+
+  <rect x="425" y="560" width="165" height="86" class="any"/>
+  <text x="507" y="594" text-anchor="middle" class="node-title">搬运棉花</text>
+  <text x="507" y="619" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="507" y="639" text-anchor="middle" class="node-text">任意空闲角色</text>
+
+  <rect x="650" y="560" width="165" height="86" class="crafter"/>
+  <text x="732" y="594" text-anchor="middle" class="node-title">制作棉线</text>
+  <text x="732" y="619" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="732" y="639" text-anchor="middle" class="node-text">Crafter · CanCraft</text>
+
+  <rect x="875" y="560" width="165" height="86" class="crafter"/>
+  <text x="957" y="594" text-anchor="middle" class="node-title">制作布料</text>
+  <text x="957" y="619" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="957" y="639" text-anchor="middle" class="node-text">Crafter · CanCraft</text>
+
+  <rect x="1100" y="560" width="165" height="86" class="crafter"/>
+  <text x="1182" y="594" text-anchor="middle" class="node-title">制作衣服</text>
+  <text x="1182" y="619" text-anchor="middle" class="node-text">BlackboardTask</text>
+  <text x="1182" y="639" text-anchor="middle" class="node-text">Crafter · CanCraft</text>
+
+  <rect x="1305" y="560" width="110" height="86" class="goal"/>
+  <text x="1360" y="594" text-anchor="middle" class="node-title">衣服完成</text>
+  <text x="1360" y="621" text-anchor="middle" class="node-text">Clothes ≥ 3</text>
+
+  <path d="M 365 603 L 420 603" class="arrow"/>
+  <path d="M 590 603 L 645 603" class="arrow"/>
+  <path d="M 815 603 L 870 603" class="arrow"/>
+  <path d="M 1040 603 L 1095 603" class="arrow"/>
+  <path d="M 1265 603 L 1300 603" class="arrow"/>
+
+  <!-- Blackboard distribution lines -->
+  <path d="M 565 236 C 500 275, 330 270, 277 330" class="dash"/>
+  <path d="M 565 236 C 610 275, 760 270, 807 330" class="dash"/>
+  <path d="M 565 236 C 545 390, 310 455, 277 555" class="dash"/>
+  <path d="M 695 183 C 910 230, 1110 430, 1182 555" class="dash"/>
+
+  <text x="770" y="272" class="node-text">紫色虚线框内节点均表示被发布到黑板的 BlackboardTask</text>
+  <text x="770" y="298" class="node-text">实线表示任务前置依赖；虚线表示黑板根据状态向角色释放可执行任务</text>
+
+  <!-- Legend -->
+  <rect x="165" y="805" width="1170" height="72" fill="#fbfcff" stroke="#d4dae8" stroke-width="1.5" rx="8"/>
+  <rect x="195" y="826" width="24" height="18" class="farmer"/>
+  <text x="230" y="841" class="legend">Farmer：农业生产</text>
+  <rect x="400" y="826" width="24" height="18" class="chef"/>
+  <text x="435" y="841" class="legend">Chef：烹饪</text>
+  <rect x="565" y="826" width="24" height="18" class="crafter"/>
+  <text x="600" y="841" class="legend">Crafter：制造棉线、布料和衣服</text>
+  <rect x="855" y="826" width="24" height="18" class="any"/>
+  <text x="890" y="841" class="legend">任意角色：搬运协作</text>
+  <rect x="1085" y="826" width="24" height="18" class="blackboard"/>
+  <text x="1120" y="841" class="legend">Blackboard：任务管理与分发</text>
+</svg>

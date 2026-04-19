@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="860" viewBox="0 0 1320 860">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f5fa8"/>
+    </marker>
+    <style>
+      .title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 28px; font-weight: 700; fill: #1f2430; }
+      .box-title { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 20px; font-weight: 700; fill: #1f2430; }
+      .text { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 17px; fill: #2d3340; }
+      .small { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 15px; fill: #434a57; }
+      .tiny { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; font-size: 13px; fill: #4f5663; }
+      .outer { fill: #f6f7fb; stroke: #bfc7d9; stroke-width: 2; rx: 10; }
+      .game { fill: #eef7f2; stroke: #7eb28e; stroke-width: 2; rx: 8; }
+      .server { fill: #f4f1ff; stroke: #9b8bd9; stroke-width: 2; rx: 8; }
+      .model { fill: #eef4ff; stroke: #7f9ed6; stroke-width: 2; rx: 8; }
+      .module { fill: #ffffff; stroke: #aeb7c8; stroke-width: 1.8; rx: 8; }
+      .module-purple { fill: #faf8ff; stroke: #9b8bd9; stroke-width: 1.8; rx: 8; }
+      .module-green { fill: #f8fff9; stroke: #7eb28e; stroke-width: 1.8; rx: 8; }
+      .module-blue { fill: #f7fbff; stroke: #7f9ed6; stroke-width: 1.8; rx: 8; }
+      .arrow { stroke: #333; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .arrow-blue { stroke: #2f5fa8; stroke-width: 2.2; fill: none; marker-end: url(#arrowBlue); }
+      .dash { stroke: #555; stroke-width: 2; fill: none; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+      .label-bg { fill: #ffffff; opacity: 0.92; }
+      .num { fill: #333842; }
+      .num-text { font-family: Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1320" height="860" fill="#ffffff"/>
+  <text x="660" y="48" text-anchor="middle" class="title">RimSpace 多智能体决策与执行流程</text>
+
+  <rect x="50" y="90" width="290" height="620" class="outer"/>
+  <rect x="515" y="90" width="365" height="620" class="outer"/>
+  <rect x="1030" y="90" width="240" height="620" class="outer"/>
+
+  <text x="195" y="128" text-anchor="middle" class="box-title">RimSpace 游戏环境</text>
+  <text x="697" y="128" text-anchor="middle" class="box-title">LLMServer 多智能体服务端</text>
+  <text x="1150" y="128" text-anchor="middle" class="box-title">云端大语言模型</text>
+
+  <rect x="85" y="160" width="220" height="85" class="game"/>
+  <text x="195" y="192" text-anchor="middle" class="text">玩家任务与角色状态</text>
+  <text x="195" y="220" text-anchor="middle" class="small">Stove / WorkStation / Agent State</text>
+
+  <rect x="85" y="300" width="220" height="85" class="game"/>
+  <text x="195" y="332" text-anchor="middle" class="text">状态快照封装</text>
+  <text x="195" y="360" text-anchor="middle" class="small">Environment + Character JSON</text>
+
+  <rect x="85" y="575" width="220" height="85" class="game"/>
+  <text x="195" y="607" text-anchor="middle" class="text">执行原子动作</text>
+  <text x="195" y="635" text-anchor="middle" class="small">Move / Take / Put / Use / Wait</text>
+
+  <rect x="550" y="155" width="295" height="70" class="module-purple"/>
+  <text x="697" y="184" text-anchor="middle" class="text">感知器 Perceiver</text>
+  <text x="697" y="207" text-anchor="middle" class="small">解析状态，识别显式与隐式需求</text>
+
+  <rect x="550" y="255" width="295" height="82" class="module-purple"/>
+  <text x="697" y="285" text-anchor="middle" class="text">共享黑板 Blackboard</text>
+  <text x="697" y="309" text-anchor="middle" class="small">任务发布 / 去重 / 清理 / 技能过滤</text>
+
+  <rect x="550" y="370" width="295" height="78" class="module-purple"/>
+  <text x="697" y="400" text-anchor="middle" class="text">Agent 上下文构造</text>
+  <text x="697" y="424" text-anchor="middle" class="small">角色状态 + 可执行任务 + 反馈</text>
+
+  <rect x="550" y="500" width="295" height="82" class="module-purple"/>
+  <text x="697" y="530" text-anchor="middle" class="text">Planner</text>
+  <text x="697" y="554" text-anchor="middle" class="small">任务拆解，动作序列化，失败反馈</text>
+
+  <rect x="550" y="625" width="295" height="58" class="module-purple"/>
+  <text x="697" y="660" text-anchor="middle" class="text">动作队列 / Command JSON</text>
+
+  <rect x="1065" y="300" width="170" height="90" class="model"/>
+  <text x="1150" y="333" text-anchor="middle" class="text">LLM 推理</text>
+  <text x="1150" y="361" text-anchor="middle" class="small">输出高层意图</text>
+
+  <line x1="195" y1="245" x2="195" y2="295" class="arrow"/>
+  <circle cx="195" cy="270" r="13" class="num"/><text x="195" y="270" class="num-text">1</text>
+  <text x="116" y="278" class="small">触发决策，进入思考</text>
+
+  <path d="M 305 342 C 395 342, 450 190, 545 190" class="arrow"/>
+  <circle cx="404" cy="323" r="13" class="num"/><text x="404" y="323" class="num-text">2</text>
+  <rect x="325" y="292" width="160" height="25" class="label-bg"/>
+  <text x="405" y="311" text-anchor="middle" class="small">HTTP POST 状态快照</text>
+
+  <line x1="697" y1="225" x2="697" y2="250" class="arrow"/>
+  <circle cx="697" cy="239" r="13" class="num"/><text x="697" y="239" class="num-text">3</text>
+
+  <line x1="697" y1="337" x2="697" y2="365" class="arrow"/>
+  <circle cx="697" cy="353" r="13" class="num"/><text x="697" y="353" class="num-text">4</text>
+
+  <path d="M 845 404 C 930 398, 970 318, 1060 328" class="arrow-blue"/>
+  <circle cx="928" cy="376" r="13" class="num"/><text x="928" y="376" class="num-text">5</text>
+  <rect x="890" y="336" width="122" height="25" class="label-bg"/>
+  <text x="951" y="355" text-anchor="middle" class="small">Prompt 调用</text>
+
+  <path d="M 1065 370 C 990 470, 940 535, 845 544" class="dash"/>
+  <circle cx="986" cy="455" r="13" class="num"/><text x="986" y="455" class="num-text">6</text>
+  <rect x="940" y="484" width="140" height="25" class="label-bg"/>
+  <text x="1010" y="503" text-anchor="middle" class="small">返回高层意图</text>
+
+  <line x1="697" y1="448" x2="697" y2="495" class="arrow"/>
+  <circle cx="697" cy="472" r="13" class="num"/><text x="697" y="472" class="num-text">7</text>
+
+  <path d="M 550 552 C 452 520, 452 295, 545 285" class="dash"/>
+  <circle cx="474" cy="454" r="13" class="num"/><text x="474" y="454" class="num-text">8</text>
+  <rect x="338" y="450" width="170" height="25" class="label-bg"/>
+  <text x="423" y="469" text-anchor="middle" class="small">资源不足时发布子任务</text>
+
+  <line x1="697" y1="582" x2="697" y2="620" class="arrow"/>
+  <circle cx="697" cy="603" r="13" class="num"/><text x="697" y="603" class="num-text">9</text>
+
+  <path d="M 550 654 C 455 690, 365 690, 305 628" class="arrow"/>
+  <circle cx="430" cy="688" r="13" class="num"/><text x="430" y="688" class="num-text">10</text>
+  <rect x="350" y="718" width="140" height="25" class="label-bg"/>
+  <text x="420" y="737" text-anchor="middle" class="small">返回动作指令</text>
+
+  <path d="M 170 575 C 78 505, 76 430, 170 385" class="arrow"/>
+  <circle cx="84" cy="488" r="13" class="num"/><text x="84" y="488" class="num-text">11</text>
+  <rect x="65" y="535" width="160" height="25" class="label-bg"/>
+  <text x="145" y="554" text-anchor="middle" class="small">执行后更新世界状态</text>
+
+  <text x="65" y="790" class="tiny">说明：实线表示主流程，虚线表示反馈或条件触发流程。黑板是多智能体共享的任务中枢，Planner 负责将高层意图转换为游戏环境可执行的原子动作。</text>
+</svg>

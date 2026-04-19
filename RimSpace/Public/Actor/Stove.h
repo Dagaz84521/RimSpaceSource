@@ -18,12 +18,14 @@ class RIMSPACE_API AStove : public ARimSpaceActorBase, public ICommandProvider
 public:
 	virtual TArray<FText> GetCommandList() const override;
 	virtual void ExecuteCommand(const FText& Command) override;
+	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const override;
 	// ActorInfo接口
 	virtual FString GetActorInfo() const override;
 	AStove();
 
 	//工作相关逻辑
 	void SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID);
+	void AddTask(int32 TaskID, int32 Quantity);
 	virtual void UpdateEachMinute_Implementation(int32 NewMinute) override;
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")

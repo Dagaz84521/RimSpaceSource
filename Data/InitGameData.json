@@ -16,6 +16,14 @@
       ]
     }
   ],
+  "Stoves": [
+    {
+      "ActorName": "Stove",
+      "Tasks": [
+        { "TaskID": 2003, "Quantity": 3 }
+      ]
+    }
+  ],
   "CultivateChambers": [
     {
       "ActorName": "CultivateChamber_1",

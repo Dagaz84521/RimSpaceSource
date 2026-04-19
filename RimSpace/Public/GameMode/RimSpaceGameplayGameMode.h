@@ -47,6 +47,16 @@ struct FConfigWorkStation
 };
 
 USTRUCT()
+struct FConfigStove
+{
+	GENERATED_BODY()
+	UPROPERTY()
+	FString ActorName;
+	UPROPERTY()
+	TArray<FConfigTask> Tasks;
+};
+
+USTRUCT()
 struct FConfigCultivateChamber
 {
 	GENERATED_BODY()
@@ -83,6 +93,8 @@ struct FGameInitData
 	UPROPERTY()
 	TArray<FConfigWorkStation> WorkStations;
 	UPROPERTY()
+	TArray<FConfigStove> Stoves;
+	UPROPERTY()
 	TArray<FConfigCultivateChamber> CultivateChambers;
 	UPROPERTY()
 	TArray<FConfigCharacter> Characters;
@@ -111,6 +123,8 @@ private:
 	void ApplyStorageConfig(const TArray<FConfigStorage>& StorageConfigs);
 
 	void ApplyWorkStationConfig(const TArray<FConfigWorkStation>& WorkStationConfigs);
+
+	void ApplyStoveConfig(const TArray<FConfigStove>& StoveConfigs);
 
 	void ApplyCultivateChamberConfig(const TArray<FConfigCultivateChamber>& CultivateChamberConfigs);
 

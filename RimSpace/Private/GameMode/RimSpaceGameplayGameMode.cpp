@@ -5,6 +5,7 @@
 #include "Actor/RimSpaceActorBase.h"
 #include "Actor/Bed.h"
 #include "Actor/WorkStation.h"
+#include "Actor/Stove.h"
 #include "Actor/CultivateChamber.h"
 #include "Component/InventoryComponent.h"
 #include "JsonObjectConverter.h"
@@ -35,12 +36,13 @@ void ARimSpaceGameplayGameMode::LoadAndApplyConfig()
 		return;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Config Loaded! Found %d storage configs, %d workstation configs, %d cultivatechamber configs, and %d character configs."), 
-		InitData.Storages.Num(), InitData.WorkStations.Num(), InitData.CultivateChambers.Num(), InitData.Characters.Num());
+    UE_LOG(LogTemp, Log, TEXT("Config Loaded! Found %d storage configs, %d workstation configs, %d stove configs, %d cultivatechamber configs, and %d character configs."), 
+        InitData.Storages.Num(), InitData.WorkStations.Num(), InitData.Stoves.Num(), InitData.CultivateChambers.Num(), InitData.Characters.Num());
 
 	// 4. 应用配置
 	ApplyStorageConfig(InitData.Storages);
 	ApplyWorkStationConfig(InitData.WorkStations);
+    ApplyStoveConfig(InitData.Stoves);
 	ApplyCultivateChamberConfig(InitData.CultivateChambers);
 	ApplyCharacterConfig(InitData.Characters);
 }
@@ -128,6 +130,40 @@ void ARimSpaceGameplayGameMode::ApplyWorkStationConfig(const TArray<FConfigWorkS
 			UE_LOG(LogTemp, Warning, TEXT("Config specified WorkStation '%s' but it was not found!"), *Config.ActorName);
 		}
 	}
+}
+
+void ARimSpaceGameplayGameMode::ApplyStoveConfig(const TArray<FConfigStove>& StoveConfigs)
+{
+    TArray<AActor*> FoundActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AStove::StaticClass(), FoundActors);
+
+    TMap<FString, AStove*> StoveMap;
+    for (AActor* Actor : FoundActors)
+    {
+        if (AStove* Stove = Cast<AStove>(Actor))
+        {
+            StoveMap.Add(Stove->GetActorName(), Stove);
+        }
+    }
+
+    for (const FConfigStove& Config : StoveConfigs)
+    {
+        if (AStove** FoundPtr = StoveMap.Find(Config.ActorName))
+        {
+            AStove* TargetStove = *FoundPtr;
+            for (const FConfigTask& Task : Config.Tasks)
+            {
+                TargetStove->AddTask(Task.TaskID, Task.Quantity);
+            }
+
+            UE_LOG(LogTemp, Log, TEXT("Configured Stove: %s with %d tasks"),
+                *Config.ActorName, Config.Tasks.Num());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Config specified Stove '%s' but it was not found!"), *Config.ActorName);
+        }
+    }
 }
 
 void ARimSpaceGameplayGameMode::ApplyCultivateChamberConfig(const TArray<FConfigCultivateChamber>& CultivateChamberConfigs)

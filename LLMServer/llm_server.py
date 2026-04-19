@@ -308,11 +308,7 @@ def get_instruction():
         # ==========================================
         
         # print(f"\n[GetInstruction] 角色: {character_name}, 时间: {game_time}")
-        
-        # ====== TODO: 在这里实现你的决策逻辑 ======
-        # 示例：检查角色状态
-        # character_info = characters.get("Characters", [])
-        # environment_data = environment
+    
 
         if character_name not in agents:
             agents[character_name] = RimSpaceAgent(character_name, character_name.lower(), Blackboard_Instance)
@@ -423,7 +419,7 @@ if __name__ == '__main__':
     # 启动Flask服务器
     app.run(
         host='127.0.0.1',
-        port=5000,
+        port=5001,
         debug=debug_flag,
         use_reloader=debug_flag
     )

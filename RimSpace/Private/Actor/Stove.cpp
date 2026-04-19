@@ -6,16 +6,52 @@
 #include "GameInstance/RimSpaceGameInstance.h"
 #include "Data/TaskInfo.h"
 #include "Character/RimSpaceCharacterBase.h"
+#include "Player/RimSpacePlayerController.h"
 
 TArray<FText> AStove::GetCommandList() const
 {
 	TArray<FText> CommandList;
+	CommandList.Add(FText::FromString(TEXT("制作套餐")));
 	return CommandList;
 }
 
 void AStove::ExecuteCommand(const FText& Command)
 {
-	
+	FString CmdString = Command.ToString();
+	int32 TargetTaskID = -1;
+	FText TitleText;
+
+	if (CmdString.Contains(TEXT("套餐")) || CmdString.Contains(TEXT("Meal")))
+	{
+		TargetTaskID = 2003;
+		TitleText = FText::FromString(TEXT("请输入套餐制作数量"));
+	}
+
+	if (TargetTaskID != -1)
+	{
+		int32 CurrentCount = TaskList.Contains(TargetTaskID) ? TaskList[TargetTaskID] : 0;
+
+		if (ARimSpacePlayerController* PC = Cast<ARimSpacePlayerController>(GetWorld()->GetFirstPlayerController()))
+		{
+			PC->OpenQuantityInputWidget(
+				TitleText,
+				CurrentCount,
+				[this, TargetTaskID](int32 InputValue)
+				{
+					if (InputValue > 0)
+					{
+						this->AddTask(TargetTaskID, InputValue);
+						UE_LOG(LogTemp, Log, TEXT("[Stove] 玩家下达任务 %d，目标数量: %d"), TargetTaskID, InputValue);
+					}
+					else
+					{
+						this->TaskList.Remove(TargetTaskID);
+						UE_LOG(LogTemp, Log, TEXT("[Stove] 任务 %d 已移除"), TargetTaskID);
+					}
+				}
+			);
+		}
+	}
 }
 
 FString AStove::GetActorInfo() const
@@ -24,6 +60,23 @@ FString AStove::GetActorInfo() const
 	FString InventoryInfo = Inventory->GetInventoryInfo();
 	Info += TEXT("=== 库存 ===\n");
 	Info += InventoryInfo;
+	Info += TEXT("\n=== 任务列表 ===\n");
+	if (TaskList.Num() == 0)
+	{
+		Info += TEXT("(empty)\n");
+	}
+	for (const auto& Elem : TaskList)
+	{
+		const URimSpaceGameInstance* GI = Cast<URimSpaceGameInstance>(GetGameInstance());
+		if (const FTask* TaskData = GI ? GI->GetTaskData(Elem.Key) : nullptr)
+		{
+			Info += FString::Printf(TEXT("任务: %s - 剩余次数: %d\n"), *TaskData->TaskName.ToString(), Elem.Value);
+		}
+		else
+		{
+			Info += FString::Printf(TEXT("任务ID: %d - 剩余次数: %d\n"), Elem.Key, Elem.Value);
+		}
+	}
 	return Info;
 }
 
@@ -53,6 +106,27 @@ void AStove::SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID)
 	// 如果换人了或者换任务了，重置进度
 	// (这里可以加细致判断，比如同一个人做同一个任务就不重置)
 	CurrentWorkProgress = 0;
+}
+
+void AStove::AddTask(int32 TaskID, int32 Quantity)
+{
+	if (Quantity > 0)
+	{
+		TaskList.FindOrAdd(TaskID) = Quantity;
+		UE_LOG(LogTemp, Log, TEXT("[Stove %s] Added Task %d with quantity %d"), *GetActorName(), TaskID, Quantity);
+	}
+}
+
+TSharedPtr<FJsonObject> AStove::GetActorDataAsJson() const
+{
+	TSharedPtr<FJsonObject> CommonData = Super::GetActorDataAsJson();
+	TSharedPtr<FJsonObject> TaskListObj = MakeShareable(new FJsonObject());
+	for (const auto& Elem : TaskList)
+	{
+		TaskListObj->SetNumberField(FString::FromInt(Elem.Key), Elem.Value);
+	}
+	CommonData->SetObjectField(TEXT("TaskList"), TaskListObj);
+	return CommonData;
 }
 
 // 当原料不足的时候是否应该把Character转为Idle？
