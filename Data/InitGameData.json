@@ -3,14 +3,13 @@
     {
       "ActorName": "Storage",
       "Items": [
-        { "ItemID": 1001, "Count": 10 },
-        { "ItemID": 1002, "Count": 50 }
+        { "ItemID": 2003, "Count": 3 }
       ]
     }
   ],
   "WorkStations": [
     {
-      "ActorName": "WorkStation_1",
+      "ActorName": "WorkStation",
       "Tasks": [
         { "TaskID": 2001, "Quantity": 10 }
       ]
@@ -20,7 +19,7 @@
     {
       "ActorName": "Stove",
       "Tasks": [
-        { "TaskID": 2003, "Quantity": 3 }
+        { "TaskID": 2003, "Quantity": 10 }
       ]
     }
   ],
@@ -94,5 +93,33 @@
         "bCanCraft": false
       }
     }
-  ]
+  ],
+  "CharacterStateTuning": {
+    "IdleEnergyDeltaPerMinute": -0.1,
+    "IdleHungerDeltaPerMinute": -0.1,
+    "MovingEnergyDeltaPerMinute": -0.1,
+    "MovingHungerDeltaPerMinute": -0.1,
+    "WorkingEnergyDeltaPerMinute": -0.2,
+    "WorkingHungerDeltaPerMinute": -0.2,
+    "SleepingEnergyDeltaPerMinute": 1.0,
+    "SleepingHungerDeltaPerMinute": -0.05,
+    "WaitingEnergyDeltaPerMinute": -0.1,
+    "WaitingHungerDeltaPerMinute": -0.1
+  },
+  "ProductionTuning": {
+    "WorkStationProgressPerMinute": 1,
+    "StoveProgressPerMinute": 1,
+    "TaskWorkloadOverrides": [
+      { "TaskID": 2001, "Workload": 10 },
+      { "TaskID": 2003, "Workload": 10 }
+    ],
+    "CultivateChamber": {
+      "PlantingWorkload": 10,
+      "GrowthMaxProgress": 120,
+      "HarvestWorkload": 10,
+      "PlantingProgressPerMinute": 1,
+      "GrowthProgressPerMinute": 1,
+      "HarvestProgressPerMinute": 1
+    }
+  }
 }

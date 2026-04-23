@@ -9,6 +9,18 @@
 #include "Interface/WorkableInterface.h"
 #include "WorkStation.generated.h"
 
+USTRUCT(BlueprintType)
+struct FProductionTaskWorkloadOverride
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Production")
+	int32 TaskID = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Production")
+	int32 Workload = 0;
+};
+
 /**
  * 
  */
@@ -17,6 +29,7 @@ class RIMSPACE_API AWorkStation : public ARimSpaceActorBase, public ICommandProv
 {
 	GENERATED_BODY()
 public:
+
 	// CommandProvider接口
 	virtual TArray<FText> GetCommandList() const override;
 	virtual void ExecuteCommand(const FText& Command) override;
@@ -30,6 +43,8 @@ public:
 	
 	// 配置初始化方法
 	void AddTask(int32 TaskID, int32 Quantity);
+	void SetProductionProgressPerMinute(int32 InProgressPerMinute);
+	void SetTaskWorkloadOverrides(const TArray<FProductionTaskWorkloadOverride>& InOverrides);
 
 	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const override;
 protected:
@@ -44,8 +59,11 @@ private:
 
 	int32 CurrentTaskID; // 当前任务数据
 	int32 CurrentWorkProgress = 0; // 当前工作进度，单位：分钟
+	int32 ProductionProgressPerMinute = 1;
+	TMap<int32, int32> TaskWorkloadOverrides;
 
 	bool HasIngredients(const FTask& Task) const;
 	bool ConsumeIngredients(const FTask& Task);
 	const FTask* GetCurrentTaskData() const;
+	int32 GetRequiredWorkload(const FTask& Task) const;
 };

@@ -61,7 +61,7 @@ FString ACultivateChamber::GetActorInfo() const
 		Info += FString::Printf(TEXT("种植中 (%d/%d)\n"), CurrentWorkProgress, PlantingWorkload);
 		break;
 	case ECultivatePhase::ECP_Growing:
-		Info += FString::Printf(TEXT("成长中 (%d/%d 小时)\n"), GrowthProgress, GrowthMaxProgress);
+		Info += FString::Printf(TEXT("成长中 (%d/%d 分钟)\n"), GrowthProgress, GrowthMaxProgress);
 		break;
 	case ECultivatePhase::ECP_ReadyToHarvest:
 		Info += TEXT("等待工人收获\n");
@@ -148,20 +148,6 @@ void ACultivateChamber::SetWorker(ARimSpaceCharacterBase* NewWorker)
 void ACultivateChamber::UpdateEachHour_Implementation(int32 NewHour)
 {
 	Super::UpdateEachHour_Implementation(NewHour);
-	
-	// 成长阶段：每小时自动增加进度
-	if (CurrentPhase == ECultivatePhase::ECP_Growing)
-	{
-		GrowthProgress++;
-		GEngine->AddOnScreenDebugMessage(3, 5.f, FColor::Green,
-			FString::Printf(TEXT("[培养仓] 作物成长中... %d/%d"), GrowthProgress, GrowthMaxProgress));
-		
-		if (GrowthProgress >= GrowthMaxProgress)
-		{
-			CurrentPhase = ECultivatePhase::ECP_ReadyToHarvest;
-			GEngine->AddOnScreenDebugMessage(3, 5.f, FColor::Yellow, TEXT("[培养仓] 作物成熟，等待收获!"));
-		}
-	}
 }
 
 void ACultivateChamber::UpdateEachMinute_Implementation(int32 NewMinute)
@@ -176,7 +162,7 @@ void ACultivateChamber::UpdateEachMinute_Implementation(int32 NewMinute)
 			return;
 		}
 		
-		CurrentWorkProgress++;
+		CurrentWorkProgress += FMath::Max(0, Tuning.PlantingProgressPerMinute);
 		GEngine->AddOnScreenDebugMessage(4, 5.f, FColor::Blue,
 			FString::Printf(TEXT("[培养仓] 种植中... %d/%d"), CurrentWorkProgress, PlantingWorkload));
 		
@@ -204,7 +190,7 @@ void ACultivateChamber::UpdateEachMinute_Implementation(int32 NewMinute)
 			return;
 		}
 		
-		CurrentWorkProgress++;
+		CurrentWorkProgress += FMath::Max(0, Tuning.HarvestProgressPerMinute);
 		GEngine->AddOnScreenDebugMessage(4, 5.f, FColor::Orange,
 			FString::Printf(TEXT("[培养仓] 收获中... %d/%d"), CurrentWorkProgress, HarvestWorkload));
 		
@@ -256,12 +242,39 @@ void ACultivateChamber::UpdateEachMinute_Implementation(int32 NewMinute)
 			}
 		}
 	}
+	else if (CurrentPhase == ECultivatePhase::ECP_Growing)
+	{
+		GrowthProgress += FMath::Max(0, Tuning.GrowthProgressPerMinute);
+		GEngine->AddOnScreenDebugMessage(3, 5.f, FColor::Green,
+			FString::Printf(TEXT("[培养仓] 作物成长中... %d/%d"), GrowthProgress, GrowthMaxProgress));
+
+		if (GrowthProgress >= GrowthMaxProgress)
+		{
+			CurrentPhase = ECultivatePhase::ECP_ReadyToHarvest;
+			GEngine->AddOnScreenDebugMessage(3, 5.f, FColor::Yellow, TEXT("[培养仓] 作物成熟，等待收获!"));
+		}
+	}
 }
 
 ACultivateChamber::ACultivateChamber()
 {
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("OutputInventory"));
 	ActorType = EInteractionType::EAT_CultivateChamber;
+	ApplyTuning(Tuning);
+}
+
+void ACultivateChamber::ApplyTuning(const FCultivateChamberTuning& InTuning)
+{
+	Tuning = InTuning;
+	PlantingWorkload = Tuning.PlantingWorkload;
+	GrowthMaxProgress = Tuning.GrowthMaxProgress;
+	HarvestWorkload = Tuning.HarvestWorkload;
+	Tuning.GrowthProgressPerMinute = FMath::Max(0, Tuning.GrowthProgressPerMinute);
+	Tuning.PlantingProgressPerMinute = FMath::Max(0, Tuning.PlantingProgressPerMinute);
+	Tuning.HarvestProgressPerMinute = FMath::Max(0, Tuning.HarvestProgressPerMinute);
+	GrowthMaxProgress = FMath::Max(0, GrowthMaxProgress);
+	PlantingWorkload = FMath::Max(0, PlantingWorkload);
+	HarvestWorkload = FMath::Max(0, HarvestWorkload);
 }
 
 void ACultivateChamber::SetPlantedCrop(int32 CropItemID)

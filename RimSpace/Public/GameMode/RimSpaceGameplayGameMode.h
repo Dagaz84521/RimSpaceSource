@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Actor/CultivateChamber.h"
+#include "Actor/WorkStation.h"
 #include "Character/RimSpaceCharacterBase.h"
 #include "GameFramework/GameModeBase.h"
 #include "RimSpaceGameplayGameMode.generated.h"
@@ -67,6 +69,24 @@ struct FConfigCultivateChamber
 };
 
 USTRUCT()
+struct FConfigProductionTuning
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	int32 WorkStationProgressPerMinute = 1;
+
+	UPROPERTY()
+	int32 StoveProgressPerMinute = 1;
+
+	UPROPERTY()
+	TArray<FProductionTaskWorkloadOverride> TaskWorkloadOverrides;
+
+	UPROPERTY()
+	FCultivateChamberTuning CultivateChamber;
+};
+
+USTRUCT()
 struct FConfigCharacter
 {
 	GENERATED_BODY()
@@ -98,6 +118,10 @@ struct FGameInitData
 	TArray<FConfigCultivateChamber> CultivateChambers;
 	UPROPERTY()
 	TArray<FConfigCharacter> Characters;
+	UPROPERTY()
+	FRimSpaceCharacterStateTuning CharacterStateTuning;
+	UPROPERTY()
+	FConfigProductionTuning ProductionTuning;
 };
 
 /**
@@ -128,6 +152,7 @@ private:
 
 	void ApplyCultivateChamberConfig(const TArray<FConfigCultivateChamber>& CultivateChamberConfigs);
 
-	void ApplyCharacterConfig(const TArray<FConfigCharacter>& CharacterConfigs);
+	void ApplyCharacterConfig(const TArray<FConfigCharacter>& CharacterConfigs, const FRimSpaceCharacterStateTuning& CharacterStateTuning);
+	void ApplyProductionTuning(const FConfigProductionTuning& ProductionTuning);
 	
 };

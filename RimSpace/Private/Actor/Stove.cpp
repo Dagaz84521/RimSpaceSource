@@ -117,6 +117,23 @@ void AStove::AddTask(int32 TaskID, int32 Quantity)
 	}
 }
 
+void AStove::SetProductionProgressPerMinute(int32 InProgressPerMinute)
+{
+	ProductionProgressPerMinute = FMath::Max(0, InProgressPerMinute);
+}
+
+void AStove::SetTaskWorkloadOverrides(const TArray<FProductionTaskWorkloadOverride>& InOverrides)
+{
+	TaskWorkloadOverrides.Empty();
+	for (const FProductionTaskWorkloadOverride& Override : InOverrides)
+	{
+		if (Override.TaskID > 0 && Override.Workload > 0)
+		{
+			TaskWorkloadOverrides.Add(Override.TaskID, Override.Workload);
+		}
+	}
+}
+
 TSharedPtr<FJsonObject> AStove::GetActorDataAsJson() const
 {
 	TSharedPtr<FJsonObject> CommonData = Super::GetActorDataAsJson();
@@ -172,12 +189,12 @@ void AStove::UpdateEachMinute_Implementation(int32 NewMinute)
 	}
 
 	// 5. 增加进度
-	CurrentWorkProgress++;
+	CurrentWorkProgress += ProductionProgressPerMinute;
 	GEngine->AddOnScreenDebugMessage(6, 5.f, FColor::Purple,
 		FString::Printf(TEXT("[Stove] 工作中... 进度：%d / %d"), 
-		CurrentWorkProgress, TaskData->TaskWorkload));
+		CurrentWorkProgress, GetRequiredWorkload(*TaskData)));
 	// 6. 检查完成
-	if (CurrentWorkProgress >= TaskData->TaskWorkload)
+	if (CurrentWorkProgress >= GetRequiredWorkload(*TaskData))
 	{
 		// 消耗原料
 		if (ConsumeIngredients(*TaskData))
@@ -253,5 +270,14 @@ const FTask* AStove::GetCurrentTaskData() const
 	URimSpaceGameInstance* GameInstance = Cast<URimSpaceGameInstance>(GetGameInstance());
 	if (!GameInstance) return nullptr;
 	return GameInstance->GetTaskData(CurrentTaskID);
+}
+
+int32 AStove::GetRequiredWorkload(const FTask& Task) const
+{
+	if (const int32* Override = TaskWorkloadOverrides.Find(Task.TaskID))
+	{
+		return *Override;
+	}
+	return Task.TaskWorkload;
 }
 

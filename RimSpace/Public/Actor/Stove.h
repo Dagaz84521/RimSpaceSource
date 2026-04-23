@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Actor/WorkStation.h"
 #include "Actor/RimSpaceActorBase.h"
 #include "Interface/CommandProvider.h"
 #include "Stove.generated.h"
@@ -26,6 +27,8 @@ public:
 	//工作相关逻辑
 	void SetWorker(class ARimSpaceCharacterBase* NewWorker, int32 TaskID);
 	void AddTask(int32 TaskID, int32 Quantity);
+	void SetProductionProgressPerMinute(int32 InProgressPerMinute);
+	void SetTaskWorkloadOverrides(const TArray<FProductionTaskWorkloadOverride>& InOverrides);
 	virtual void UpdateEachMinute_Implementation(int32 NewMinute) override;
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
@@ -39,8 +42,11 @@ private:
 
 	int32 CurrentTaskID; // 当前任务数据
 	int32 CurrentWorkProgress = 0; // 当前工作进度，单位：分钟
+	int32 ProductionProgressPerMinute = 1;
+	TMap<int32, int32> TaskWorkloadOverrides;
 
 	bool HasIngredients(const FTask& Task) const;
 	bool ConsumeIngredients(const FTask& Task);
 	const FTask* GetCurrentTaskData() const;
+	int32 GetRequiredWorkload(const FTask& Task) const;
 };

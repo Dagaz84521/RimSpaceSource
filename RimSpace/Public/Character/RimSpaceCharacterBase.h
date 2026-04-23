@@ -45,6 +45,42 @@ struct FRimSpaceCharacterSkills
 	bool bCanCraft; // 制造技能
 };
 
+USTRUCT(BlueprintType)
+struct FRimSpaceCharacterStateTuning
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float IdleEnergyDeltaPerMinute = -0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float IdleHungerDeltaPerMinute = -0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float MovingEnergyDeltaPerMinute = -0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float MovingHungerDeltaPerMinute = -0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float WorkingEnergyDeltaPerMinute = -0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float WorkingHungerDeltaPerMinute = -0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float SleepingEnergyDeltaPerMinute = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float SleepingHungerDeltaPerMinute = -0.05f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float WaitingEnergyDeltaPerMinute = -0.05f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats")
+	float WaitingHungerDeltaPerMinute = -0.05f;
+};
+
 UENUM(BlueprintType)
 enum class ECharacterActionState : uint8
 {
@@ -79,6 +115,7 @@ public:
 	virtual TSharedPtr<FJsonObject> GetActorDataAsJson() const override;
 
 	void InitialCharacter(const FRimSpaceCharacterStats& Stats, const FRimSpaceCharacterSkills& Skills, const FName& Name);
+	void SetStateTuning(const FRimSpaceCharacterStateTuning& InTuning);
 
 	bool ExecuteAgentCommand(const FAgentCommand& Command);
 	ECharacterActionState GetActionState() const;
@@ -105,6 +142,9 @@ protected:
 	// 人物基本属性
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character")
 	FRimSpaceCharacterStats CharacterStats;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character")
+	FRimSpaceCharacterStateTuning StateTuning;
 
 	// 人物技能
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Character")

@@ -29,6 +29,30 @@ enum class ECultivatePhase : uint8
 	ECP_Harvesting UMETA(DisplayName = "Harvesting") // 收获中（需要工人）
 };	
 
+USTRUCT(BlueprintType)
+struct FCultivateChamberTuning
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="CultivateChamber")
+	int32 PlantingWorkload = 10;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="CultivateChamber")
+	int32 GrowthMaxProgress = 1440;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="CultivateChamber")
+	int32 HarvestWorkload = 10;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="CultivateChamber")
+	int32 PlantingProgressPerMinute = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="CultivateChamber")
+	int32 GrowthProgressPerMinute = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="CultivateChamber")
+	int32 HarvestProgressPerMinute = 1;
+};
+
 UCLASS()
 class RIMSPACE_API ACultivateChamber : public ARimSpaceActorBase, public ICommandProvider
 {
@@ -49,6 +73,7 @@ public:
 	
 	// 配置初始化方法
 	void SetPlantedCrop(int32 CropItemID);
+	void ApplyTuning(const FCultivateChamberTuning& InTuning);
 
 	ACultivateChamber();
 protected:
@@ -72,7 +97,7 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CultivateChamber", meta = (AllowPrivateAccess = "true"))
 	int32 PlantingWorkload = 10;
 
-	// 成长所需时间（游戏内小时）
+	// 成长所需时间（游戏内分钟）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CultivateChamber", meta = (AllowPrivateAccess = "true"))
 	int32 GrowthMaxProgress = 24;
 
@@ -91,4 +116,7 @@ private:
 	// 当前工人
 	UPROPERTY()
 	class ARimSpaceCharacterBase* CurrentWorker = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CultivateChamber", meta = (AllowPrivateAccess = "true"))
+	FCultivateChamberTuning Tuning;
 };

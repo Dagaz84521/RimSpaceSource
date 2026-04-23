@@ -361,21 +361,21 @@ void ARimSpaceCharacterBase::UpdateEachMinute_Implementation(int32 NewMinute)
 	case ECharacterActionState::Thinking: // 和Idle采用相同的开销
 		ThinkingMinutes++;
 	case ECharacterActionState::Idle:
-		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy - 0.1f, 0.f, 100.f);
-		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.1f, 0.f, 100.f);
+		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy + StateTuning.IdleEnergyDeltaPerMinute, 0.f, CharacterStats.MaxEnergy);
+		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger + StateTuning.IdleHungerDeltaPerMinute, 0.f, CharacterStats.MaxHunger);
 		break;
 	case ECharacterActionState::Moving:
-		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy - 0.1f, 0.f, 100.f);
-		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.1f, 0.f, 100.f);
+		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy + StateTuning.MovingEnergyDeltaPerMinute, 0.f, CharacterStats.MaxEnergy);
+		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger + StateTuning.MovingHungerDeltaPerMinute, 0.f, CharacterStats.MaxHunger);
 		break;
 	case ECharacterActionState::Working:
-		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy - 0.2f, 0.f, 100.f);
-		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.2f, 0.f, 100.f);
+		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy + StateTuning.WorkingEnergyDeltaPerMinute, 0.f, CharacterStats.MaxEnergy);
+		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger + StateTuning.WorkingHungerDeltaPerMinute, 0.f, CharacterStats.MaxHunger);
 		
 		break;
 	case ECharacterActionState::Sleeping:
-		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.05f, 0.f, 100.f);
-		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy + 1.f, 0.f, 100.f);
+		CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger + StateTuning.SleepingHungerDeltaPerMinute, 0.f, CharacterStats.MaxHunger);
+		CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy + StateTuning.SleepingEnergyDeltaPerMinute, 0.f, CharacterStats.MaxEnergy);
 		if (CharacterStats.Energy >= CharacterStats.MaxEnergy)
 		{
 			CurrentActionState = ECharacterActionState::Idle;
@@ -410,8 +410,8 @@ void ARimSpaceCharacterBase::UpdateEachMinute_Implementation(int32 NewMinute)
 			WaitRemainingMinutes--;
             
 			// 等待时的消耗（比工作低，比 Idle 略低或持平）
-			CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy - 0.05f, 0.f, 100.f);
-			CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger - 0.05f, 0.f, 100.f);
+			CharacterStats.Energy = FMath::Clamp(CharacterStats.Energy + StateTuning.WaitingEnergyDeltaPerMinute, 0.f, CharacterStats.MaxEnergy);
+			CharacterStats.Hunger = FMath::Clamp(CharacterStats.Hunger + StateTuning.WaitingHungerDeltaPerMinute, 0.f, CharacterStats.MaxHunger);
 
 			// 倒计时结束
 			if (WaitRemainingMinutes <= 0)
@@ -517,6 +517,11 @@ void ARimSpaceCharacterBase::InitialCharacter(const FRimSpaceCharacterStats& Sta
 	CharacterStats = Stats;
 	CharacterSkills = Skills;
 	CharacterName = Name;
+}
+
+void ARimSpaceCharacterBase::SetStateTuning(const FRimSpaceCharacterStateTuning& InTuning)
+{
+	StateTuning = InTuning;
 }
 
 bool ARimSpaceCharacterBase::ExecuteAgentCommand(const FAgentCommand& Command)

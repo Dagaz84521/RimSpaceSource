@@ -21,7 +21,11 @@ void ARimSpaceGameplayGameMode::BeginPlay()
 
 void ARimSpaceGameplayGameMode::LoadAndApplyConfig()
 {
-	FString ConfigFilePath = FPaths::ProjectContentDir() / TEXT("Configs/InitGameData.json");
+	FString ConfigFilePath = FPaths::ProjectDir() / TEXT("Source/Data/InitGameData.json");
+	if (!FPaths::FileExists(ConfigFilePath))
+	{
+		ConfigFilePath = FPaths::ProjectContentDir() / TEXT("Configs/InitGameData.json");
+	}
 	FString JsonContent;
 	if (!FFileHelper::LoadFileToString(JsonContent, *ConfigFilePath))
 	{
@@ -44,7 +48,8 @@ void ARimSpaceGameplayGameMode::LoadAndApplyConfig()
 	ApplyWorkStationConfig(InitData.WorkStations);
     ApplyStoveConfig(InitData.Stoves);
 	ApplyCultivateChamberConfig(InitData.CultivateChambers);
-	ApplyCharacterConfig(InitData.Characters);
+	ApplyCharacterConfig(InitData.Characters, InitData.CharacterStateTuning);
+	ApplyProductionTuning(InitData.ProductionTuning);
 }
 
 void ARimSpaceGameplayGameMode::ApplyStorageConfig(const TArray<FConfigStorage>& StorageConfigs)
@@ -202,7 +207,7 @@ void ARimSpaceGameplayGameMode::ApplyCultivateChamberConfig(const TArray<FConfig
 	}
 }
 
-void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharacter>& CharacterConfigs)
+void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharacter>& CharacterConfigs, const FRimSpaceCharacterStateTuning& CharacterStateTuning)
 {
     // 获取场景中现有的所有角色
     TArray<AActor*> FoundActors;
@@ -257,6 +262,7 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
                     UE_LOG(LogTemp, Log, TEXT("Found existing character in level: %s"), *Config.CharacterName);
                     // 现有角色已经执行过 BeginPlay，直接更新属性即可
                     TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
+                    TargetChar->SetStateTuning(CharacterStateTuning);
                     // 设置床位并移动到床的位置
                     if (AssignedBed)
                     {
@@ -289,6 +295,7 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
                 {
                     // 2. 在 BeginPlay 之前初始化数据（设置正确的名字！）
                     TargetChar->InitialCharacter(Config.Stats, Config.Skills, FName(*Config.CharacterName));
+                    TargetChar->SetStateTuning(CharacterStateTuning);
                     
                     // 2.5 设置绑定的床
                     if (AssignedBed)
@@ -339,4 +346,39 @@ void ARimSpaceGameplayGameMode::ApplyCharacterConfig(const TArray<FConfigCharact
             TargetChar->SetActorLocation(Config.SpawnLocation);
         }
     }
+}
+
+void ARimSpaceGameplayGameMode::ApplyProductionTuning(const FConfigProductionTuning& ProductionTuning)
+{
+	TArray<AActor*> WorkStations;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AWorkStation::StaticClass(), WorkStations);
+	for (AActor* Actor : WorkStations)
+	{
+		if (AWorkStation* WorkStation = Cast<AWorkStation>(Actor))
+		{
+			WorkStation->SetProductionProgressPerMinute(ProductionTuning.WorkStationProgressPerMinute);
+			WorkStation->SetTaskWorkloadOverrides(ProductionTuning.TaskWorkloadOverrides);
+		}
+	}
+
+	TArray<AActor*> Stoves;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AStove::StaticClass(), Stoves);
+	for (AActor* Actor : Stoves)
+	{
+		if (AStove* Stove = Cast<AStove>(Actor))
+		{
+			Stove->SetProductionProgressPerMinute(ProductionTuning.StoveProgressPerMinute);
+			Stove->SetTaskWorkloadOverrides(ProductionTuning.TaskWorkloadOverrides);
+		}
+	}
+
+	TArray<AActor*> Chambers;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACultivateChamber::StaticClass(), Chambers);
+	for (AActor* Actor : Chambers)
+	{
+		if (ACultivateChamber* Chamber = Cast<ACultivateChamber>(Actor))
+		{
+			Chamber->ApplyTuning(ProductionTuning.CultivateChamber);
+		}
+	}
 }
